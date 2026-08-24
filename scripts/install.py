@@ -1,6 +1,6 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """
-Adaptive Orchestrator — 1-Command Skill Installer
+Adaptive Orchestrator â€” 1-Command Skill Installer
 Installs the Adaptive Orchestrator skill into the local Gemini/Antigravity
 skills directory: ~/.gemini/config/skills/adaptive-orchestrator
 """
@@ -29,7 +29,7 @@ DIRS_TO_INSTALL = [
 def install(target_dir: str, force: bool = False, dry_run: bool = False) -> int:
     repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
     print("=" * 65)
-    print("       Adaptive Orchestrator v4.0.0 — Skill Installer")
+    print("       Adaptive Orchestrator v4.0.0 â€” Skill Installer")
     print("=" * 65)
     print(f"Source Directory: {repo_root}")
     print(f"Target Directory: {target_dir}")
@@ -38,7 +38,7 @@ def install(target_dir: str, force: bool = False, dry_run: bool = False) -> int:
 
     if os.path.exists(target_dir):
         if not force:
-            print(f"⚠️  Target directory '{target_dir}' already exists. Use --force to overwrite.")
+            print(f"âš ï¸  Target directory '{target_dir}' already exists. Use --force to overwrite.")
             return 1
         print(f"Overwriting existing installation at {target_dir}...")
         if not dry_run:
@@ -66,7 +66,7 @@ def install(target_dir: str, force: bool = False, dry_run: bool = False) -> int:
                 shutil.copytree(src, dst)
 
     print("-" * 65)
-    print(f"✅ Adaptive Orchestrator successfully installed to: {target_dir}")
+    print(f"âœ… Adaptive Orchestrator successfully installed to: {target_dir}")
     print("To activate in Antigravity or Gemini CLI, ensure your config discovers this directory.")
     return 0
 
