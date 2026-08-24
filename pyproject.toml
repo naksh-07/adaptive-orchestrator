@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "adaptive-orchestrator"
+version = "4.0.0"
+description = "Production-grade Antigravity-native global orchestration skill and multi-agent coordination system"
+readme = "README.md"
+authors = [
+    { name = "Suraj (naksh-07)", email = "naksh@users.noreply.github.com" }
+]
+license = { text = "Apache-2.0" }
+keywords = ["antigravity", "orchestration", "multi-agent", "gemini", "ai-agents", "llm-orchestrator"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries :: Application Frameworks",
+]
+requires-python = ">=3.9"
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/naksh-07/adaptive-orchestrator"
+Repository = "https://github.com/naksh-07/adaptive-orchestrator.git"
+Issues = "https://github.com/naksh-07/adaptive-orchestrator/issues"
+
+[project.scripts]
+adaptive-doctor = "scripts.doctor:main"
+adaptive-ledger = "scripts.budget_ledger:main"
+adaptive-validate = "scripts.validate_skill:main"

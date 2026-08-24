@@ -1,0 +1,4 @@
+# Adaptive Orchestrator v4 Foundation
+# Pure standard-library by design for zero dependency friction.
+# Optional testing / development tools:
+pytest>=7.0.0

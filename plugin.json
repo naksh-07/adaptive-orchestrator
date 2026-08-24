@@ -1,0 +1,12 @@
+{
+  "id": "adaptive-orchestrator",
+  "name": "Adaptive Orchestrator",
+  "version": "4.0.0",
+  "description": "Production-grade Antigravity-native global orchestration skill and multi-agent coordination system (v4 Foundation).",
+  "skills": [
+    {
+      "name": "adaptive-orchestrator",
+      "path": "SKILL.md"
+    }
+  ]
+}
