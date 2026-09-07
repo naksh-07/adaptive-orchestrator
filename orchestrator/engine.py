@@ -26,6 +26,9 @@ from orchestrator.models import (
 )
 from orchestrator.resolver import DependencyResolver
 from orchestrator.scheduler.ready_queue import ReadyQueue
+from orchestrator.scheduler.scheduler import EventDrivenScheduler, ScheduledDispatch
+from orchestrator.workers.models import Worker
+from orchestrator.workers.registry import WorkerRegistry
 
 
 class MissionEngine:
@@ -37,10 +40,20 @@ class MissionEngine:
       - Dynamic GraphMutationEngine
       - DependencyResolver for logical readiness
       - Priority ReadyQueue
+      - Reusable WorkerRegistry / Pool
+      - EventDrivenScheduler
       - Deterministic Event Emitter & Audit Log
     """
 
-    def __init__(self, mission_id: str, title: str, description: str = "", metadata: Optional[Dict[str, Any]] = None) -> None:
+    def __init__(
+        self,
+        mission_id: str,
+        title: str,
+        description: str = "",
+        metadata: Optional[Dict[str, Any]] = None,
+        worker_registry: Optional[WorkerRegistry] = None,
+        scheduler: Optional[EventDrivenScheduler] = None,
+    ) -> None:
         self._mission = Mission(
             mission_id=mission_id,
             title=title,
@@ -52,6 +65,8 @@ class MissionEngine:
         self._resolver = DependencyResolver(self._graph)
         self._mutations = GraphMutationEngine(self._graph)
         self._ready_queue = ReadyQueue()
+        self._workers = worker_registry or WorkerRegistry()
+        self._scheduler = scheduler
 
         self._events: List[Event] = []
         self._event_listeners: List[Callable[[Event], None]] = []
@@ -62,6 +77,9 @@ class MissionEngine:
             EventType.MISSION_CREATED,
             payload={"title": title, "state": self._mission.state.value}
         )
+
+        if self._scheduler is not None:
+            self._scheduler.attach_to_engine(self)
 
     @property
     def mission(self) -> Mission:
@@ -77,6 +95,48 @@ class MissionEngine:
     def ready_queue(self) -> ReadyQueue:
         """Returns the ready queue."""
         return self._ready_queue
+
+    @property
+    def workers(self) -> WorkerRegistry:
+        """Returns the worker registry."""
+        return self._workers
+
+    @property
+    def scheduler(self) -> Optional[EventDrivenScheduler]:
+        """Returns the attached scheduler, if any."""
+        return self._scheduler
+
+    def attach_scheduler(
+        self,
+        scheduler: EventDrivenScheduler,
+        worker_registry: Optional[WorkerRegistry] = None,
+    ) -> None:
+        """
+        Attaches an EventDrivenScheduler and optional WorkerRegistry.
+        Wires event subscriptions and callbacks.
+        """
+        if worker_registry is not None:
+            self._workers = worker_registry
+        self._scheduler = scheduler
+        self._scheduler.attach_to_engine(self)
+
+    def register_worker(self, worker: Worker) -> None:
+        """
+        Registers a worker into the engine's worker registry and emits WORKER_REGISTERED.
+        """
+        self._workers.register_worker(worker)
+        self._emit(
+            EventType.WORKER_REGISTERED,
+            payload={"worker_id": worker.worker_id, "domain": worker.domain}
+        )
+
+    def evaluate_scheduler(self) -> List[ScheduledDispatch]:
+        """
+        Manually triggers an evaluation step on the attached scheduler, returning any dispatches.
+        """
+        if self._scheduler is not None:
+            return self._scheduler.evaluate()
+        return []
 
     # -------------------------------------------------------------------------
     # Event System
@@ -139,12 +199,17 @@ class MissionEngine:
 
     def start_mission(self) -> None:
         """Starts mission execution."""
+        if self._mission.state == MissionState.DRAFTING:
+            self.approve_plan()
+
         old_state = self._mission.state
         self._mission.transition_to(MissionState.EXECUTING)
         self._emit(
             EventType.MISSION_STATE_CHANGED,
             payload={"old_state": old_state.value, "new_state": self._mission.state.value}
         )
+        if self._scheduler is not None:
+            self._scheduler.evaluate()
 
     def pause_mission(self, reason: str = "") -> None:
         """Pauses mission execution."""

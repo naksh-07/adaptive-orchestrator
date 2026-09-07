@@ -53,3 +53,23 @@ class DuplicateQueueEntryError(ReadyQueueError):
 
 class TaskNotReadyError(ReadyQueueError):
     """Raised when attempting to enqueue a task that is not in READY state."""
+
+
+class WorkerError(AdaptiveOrchestratorError):
+    """Base exception for worker-related errors."""
+
+
+class DuplicateWorkerError(WorkerError):
+    """Raised when attempting to register a worker with an already existing worker_id."""
+
+
+class WorkerNotFoundError(WorkerError):
+    """Raised when a requested worker does not exist in the registry."""
+
+
+class InvalidWorkerStateError(WorkerError):
+    """Raised when an illegal worker state transition is attempted."""
+
+
+class NoAvailableWorkerError(WorkerError):
+    """Raised when no suitable or idle worker is available for task dispatch."""

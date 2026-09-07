@@ -16,14 +16,19 @@ from orchestrator.exceptions import (
     DependencyError,
     DuplicateQueueEntryError,
     DuplicateTaskError,
+    DuplicateWorkerError,
     GraphMutationError,
     InvalidStateTransitionError,
+    InvalidWorkerStateError,
+    NoAvailableWorkerError,
     ReadyQueueError,
     SelfDependencyError,
     TaskError,
     TaskNotFoundError,
     TaskNotReadyError,
     UnknownDependencyError,
+    WorkerError,
+    WorkerNotFoundError,
 )
 from orchestrator.graph.dag import DependencyGraph
 from orchestrator.graph.mutations import GraphMutationEngine
@@ -37,6 +42,20 @@ from orchestrator.models import (
 )
 from orchestrator.resolver import DependencyResolver
 from orchestrator.scheduler.ready_queue import ReadyQueue
+from orchestrator.scheduler.scheduler import EventDrivenScheduler, ScheduledDispatch
+from orchestrator.workers.adapter import (
+    ExecutionAdapter,
+    ExecutionResult,
+    LocalExecutionAdapter,
+    MockExecutionAdapter,
+)
+from orchestrator.workers.affinity import DomainAffinityPolicy
+from orchestrator.workers.models import (
+    Worker,
+    WorkerMetrics,
+    WorkerState,
+)
+from orchestrator.workers.registry import WorkerRegistry
 
 __all__ = [
     # Facade
@@ -54,6 +73,18 @@ __all__ = [
     "DependencyResolver",
     # Scheduler
     "ReadyQueue",
+    "EventDrivenScheduler",
+    "ScheduledDispatch",
+    # Workers
+    "Worker",
+    "WorkerState",
+    "WorkerMetrics",
+    "WorkerRegistry",
+    "DomainAffinityPolicy",
+    "ExecutionAdapter",
+    "ExecutionResult",
+    "MockExecutionAdapter",
+    "LocalExecutionAdapter",
     # Exceptions
     "AdaptiveOrchestratorError",
     "TaskError",
@@ -68,4 +99,9 @@ __all__ = [
     "ReadyQueueError",
     "DuplicateQueueEntryError",
     "TaskNotReadyError",
+    "WorkerError",
+    "DuplicateWorkerError",
+    "WorkerNotFoundError",
+    "InvalidWorkerStateError",
+    "NoAvailableWorkerError",
 ]
