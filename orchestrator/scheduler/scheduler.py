@@ -26,6 +26,7 @@ from orchestrator.routing.router import ModelRouter
 from orchestrator.scheduler.aimd import AIMDConfig, AIMDController
 from orchestrator.scheduler.feedback import FeedbackCollector, FeedbackSignal, FeedbackSignalType
 from orchestrator.scheduler.ready_queue import ReadyQueue
+from orchestrator.verification.engine import VerificationEngine
 from orchestrator.workers.adapter import ExecutionAdapter, ExecutionResult, MockExecutionAdapter
 from orchestrator.workers.affinity import DomainAffinityPolicy
 from orchestrator.workers.models import Worker, WorkerState
@@ -90,6 +91,7 @@ class EventDrivenScheduler:
         workspace_registry: Optional[WorkspaceRegistry] = None,
         worktree_adapter: Optional[WorktreeAdapter] = None,
         integration_manager: Optional[IntegrationManager] = None,
+        verification_engine: Optional[VerificationEngine] = None,
         on_task_started: Optional[Callable[[str], Task]] = None,
         on_task_completed: Optional[Callable[[str, Optional[Dict[str, Any]]], Tuple[Task, List[Task]]]] = None,
         on_task_failed: Optional[Callable[[str, str, bool], Task]] = None,
@@ -106,6 +108,7 @@ class EventDrivenScheduler:
         self._workspace_registry = workspace_registry or WorkspaceRegistry()
         self._worktree_adapter = worktree_adapter
         self._integration_manager = integration_manager
+        self._verification_engine = verification_engine
         self._engine = engine
 
         self._on_task_started = on_task_started or (engine.mark_task_started if engine else None)
@@ -113,6 +116,11 @@ class EventDrivenScheduler:
         self._on_task_failed = on_task_failed or (engine.mark_task_failed if engine else None)
         self._event_emitter = event_emitter or (engine._emit if engine else None)
 
+        if self._integration_manager is not None and self._event_emitter is not None:
+            if getattr(self._integration_manager, "_queue", None) and self._integration_manager._queue._event_emitter is None:
+                self._integration_manager._queue._event_emitter = self._event_emitter
+
+        self._active_tasks: Dict[str, Task] = {}
         self._dispatches: List[ScheduledDispatch] = []
         self._is_evaluating: bool = False
         self._needs_reevaluation: bool = False
@@ -159,6 +167,14 @@ class EventDrivenScheduler:
         return self._integration_manager
 
     @property
+    def verification_engine(self) -> Optional[VerificationEngine]:
+        return self._verification_engine
+
+    @verification_engine.setter
+    def verification_engine(self, engine: Optional[VerificationEngine]) -> None:
+        self._verification_engine = engine
+
+    @property
     def dispatches(self) -> List[ScheduledDispatch]:
         """Chronological record of all scheduled dispatches."""
         return list(self._dispatches)
@@ -195,6 +211,11 @@ class EventDrivenScheduler:
         elif hasattr(engine, "integration_manager") and engine.integration_manager is not None:
             self._integration_manager = engine.integration_manager
 
+        if hasattr(engine, "verification_engine") and engine.verification_engine is not None:
+            self._verification_engine = engine.verification_engine
+        elif self._verification_engine is not None and hasattr(engine, "_verification_engine"):
+            engine._verification_engine = self._verification_engine
+
         # Subscribe to reactive events
         engine.subscribe(self._handle_engine_event)
 
@@ -210,6 +231,8 @@ class EventDrivenScheduler:
             EventType.CAPACITY_CHANGED,
             EventType.WORKSPACE_RELEASED,
             EventType.MERGE_COMPLETED,
+            EventType.VERIFICATION_PASSED,
+            EventType.REPAIR_COMPLETED,
         )
         if event.event_type in triggering_events:
             self.evaluate()
@@ -317,6 +340,7 @@ class EventDrivenScheduler:
         task_id = task.task_id
         worker_id = worker.worker_id
         is_reuse = self._execution_adapter.is_reuse(worker)
+        self._active_tasks[task_id] = task
 
         # 1. Acquire workspace ownership
         workspace_record = self._workspace_registry.acquire(
@@ -442,12 +466,129 @@ class EventDrivenScheduler:
         duration: float = 0.0
     ) -> None:
         """
-        Releases worker to IDLE, marks task completed, updates feedback and AIMD capacity.
-        Submits to sequential merge queue if worktree integration is required.
-        Unlocks downstream tasks and immediately re-evaluates ready queue.
+        Gated task completion.
+        If verification_engine is configured:
+          1. Transitions task to VERIFYING.
+          2. Runs verification tiers (Tier 1 Self-Test, Tier 2 Independent).
+          3. If passed:
+             - Emits VERIFICATION_PASSED
+             - Releases worker to IDLE
+             - If merge required: submits to merge queue (MERGE_READY -> MERGED)
+             - Else: releases workspace, marks task PASSED in engine, unlocks dependents
+          4. If failed:
+             - Checks repair eligibility (repairable failure & task.retry_count < task.max_retries)
+             - If repairable: triggers in-context local repair with same worker and workspace,
+               transitions VERIFYING -> RETRYING -> RUNNING -> REPAIR_COMPLETED -> VERIFYING.
+             - If retries exhausted or unrepairable: transitions VERIFYING -> FAILED,
+               releases workspace, releases worker, decrements AIMD capacity, blocks dependents.
+        If verification_engine is None:
+          Direct legacy completion without verification gating.
         """
+        task = self._active_tasks.get(task_id) or (
+            self._engine.graph.get_task(task_id)
+            if self._engine and self._engine.graph.has_task(task_id)
+            else None
+        )
         worker = self._worker_registry.get_worker_for_task(task_id)
-        worker_id = worker.worker_id if worker else "unknown"
+        worker_id = worker.worker_id if worker else (task.assigned_worker_id if task else "unknown")
+
+        # ---------------------------------------------------------------------
+        # Verification & Repair Pipeline (Phase 5)
+        # ---------------------------------------------------------------------
+        if self._verification_engine is not None and task is not None:
+            # 1. Transition task to VERIFYING
+            if task.status == TaskState.RUNNING:
+                task.transition_to(TaskState.VERIFYING)
+                if self._event_emitter:
+                    self._event_emitter(EventType.TASK_VERIFYING, task_id=task_id)
+
+            # 2. Execute verification tiers
+            verif_result = self._verification_engine.verify_task(task)
+
+            if not verif_result.passed:
+                # Verification failed! Evaluate local repair eligibility
+                can_repair = (
+                    worker is not None
+                    and self._verification_engine.repair_coordinator.can_repair(task, verif_result)
+                )
+
+                if can_repair:
+                    # In-Context Local Repair Loop (reusing same worker & workspace)
+                    repair_payload = self._verification_engine.repair_coordinator.build_repair_payload(
+                        task, verif_result
+                    )
+                    if self._event_emitter:
+                        self._event_emitter(
+                            EventType.REPAIR_REQUESTED,
+                            task_id=task_id,
+                            payload=repair_payload.to_dict()
+                        )
+
+                    # Transition VERIFYING -> RETRYING (increments retry_count)
+                    task.transition_to(TaskState.RETRYING, reason=verif_result.summary)
+                    if self._event_emitter:
+                        self._event_emitter(
+                            EventType.TASK_RETRYING,
+                            task_id=task_id,
+                            payload={"retry_count": task.retry_count, "error": verif_result.summary}
+                        )
+
+                    # Transition RETRYING -> RUNNING for repair execution
+                    task.transition_to(TaskState.RUNNING)
+
+                    # Request repair from worker via execution adapter
+                    repair_res = self._execution_adapter.request_repair(worker, task, repair_payload)
+
+                    if repair_res is not None:
+                        if repair_res.success:
+                            if self._event_emitter:
+                                self._event_emitter(
+                                    EventType.REPAIR_COMPLETED,
+                                    task_id=task_id,
+                                    payload={
+                                        "retry_count": task.retry_count,
+                                        "worker_id": worker.worker_id,
+                                    }
+                                )
+                            # Re-enter verification loop
+                            self.complete_task(
+                                task_id=task_id,
+                                result=repair_res.result or result,
+                                duration=repair_res.duration or duration,
+                            )
+                            return
+                        else:
+                            # Worker repair failed
+                            if self._event_emitter:
+                                self._event_emitter(
+                                    EventType.REPAIR_FAILED,
+                                    task_id=task_id,
+                                    payload={"error": repair_res.error or "Repair execution failed"}
+                                )
+                            self.fail_task(
+                                task_id=task_id,
+                                error=repair_res.error or "Repair execution failed",
+                                can_retry=False,
+                                duration=duration,
+                            )
+                            return
+                    else:
+                        # Async repair underway
+                        return
+                else:
+                    # Non-repairable or retries exhausted
+                    self.fail_task(
+                        task_id=task_id,
+                        error=verif_result.summary,
+                        can_retry=False,
+                        duration=duration,
+                    )
+                    return
+
+        # ---------------------------------------------------------------------
+        # Acceptance & Integration (Verified or Legacy Mode)
+        # ---------------------------------------------------------------------
+        self._active_tasks.pop(task_id, None)
 
         # 1. Record feedback and process AIMD controller
         self._feedback_collector.record_task_completed(
@@ -494,8 +635,6 @@ class EventDrivenScheduler:
                 )
 
         # 3. Controlled Integration / Merge Queue handling
-        task = self._engine.graph.get_task(task_id) if self._engine and self._engine.graph.has_task(task_id) else None
-
         requires_merge = (
             self._integration_manager is not None
             and task is not None
@@ -504,7 +643,8 @@ class EventDrivenScheduler:
         )
 
         if requires_merge and task is not None:
-            task.transition_to(TaskState.PASSED)
+            if task.can_transition_to(TaskState.PASSED):
+                task.transition_to(TaskState.PASSED)
             task.result = result or {}
 
             # Finalize workspace changes in worktree adapter if present
@@ -514,7 +654,7 @@ class EventDrivenScheduler:
                 except Exception:
                     pass
 
-            # Enqueue into sequential merge queue
+            # Enqueue into sequential merge queue (emits MERGE_READY)
             self._integration_manager.submit_for_merge(
                 task=task,
                 worker_id=worker_id,
@@ -530,7 +670,7 @@ class EventDrivenScheduler:
             self._workspace_registry.release(
                 task_id=task_id,
                 state=WorkspaceReleaseState.RELEASED,
-                reason="Task completed without merge queue"
+                reason="Task completed and verified without merge queue"
             )
             if self._event_emitter:
                 self._event_emitter(
@@ -542,6 +682,10 @@ class EventDrivenScheduler:
             # Notify engine callback
             if self._on_task_completed:
                 self._on_task_completed(task_id, result)
+            elif task is not None:
+                if task.can_transition_to(TaskState.PASSED):
+                    task.transition_to(TaskState.PASSED)
+                task.result = result or {}
 
         # 4. Continuous execution: immediately re-evaluate queue!
         self.evaluate()
@@ -559,6 +703,11 @@ class EventDrivenScheduler:
         Releases worker and workspace ownership, marks task failed, updates feedback and AIMD.
         Preserves retry eligibility and ensures no stale workspace locks survive.
         """
+        task = self._active_tasks.pop(task_id, None) or (
+            self._engine.graph.get_task(task_id)
+            if self._engine and self._engine.graph.has_task(task_id)
+            else None
+        )
         worker = self._worker_registry.get_worker_for_task(task_id)
         worker_id = worker.worker_id if worker else "unknown"
 
@@ -643,9 +792,14 @@ class EventDrivenScheduler:
                     payload={"worker_id": worker.worker_id, "error": error}
                 )
 
-        # 4. Notify engine callback
+        # 4. Notify engine callback or transition directly
         if self._on_task_failed:
             self._on_task_failed(task_id, error, can_retry)
+        elif task is not None:
+            if can_retry and task.retry_count < task.max_retries and task.can_transition_to(TaskState.RETRYING):
+                task.transition_to(TaskState.RETRYING, reason=error)
+            elif task.can_transition_to(TaskState.FAILED):
+                task.transition_to(TaskState.FAILED, reason=error)
 
         # 5. If task is eligible for retry, re-enqueue it via engine.retry_task
         if can_retry and self._engine is not None:

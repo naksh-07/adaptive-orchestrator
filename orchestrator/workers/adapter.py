@@ -65,6 +65,18 @@ class ExecutionAdapter(ABC):
         """
         return len(worker.task_history) > 0 or worker.metrics.tasks_completed > 0
 
+    def request_repair(
+        self,
+        worker: Worker,
+        task: Task,
+        payload: Any,
+    ) -> Optional[ExecutionResult]:
+        """
+        Sends a targeted repair request to the assigned worker in its existing context.
+        Returns the ExecutionResult after repair is attempted.
+        """
+        raise NotImplementedError
+
 
 class MockExecutionAdapter(ExecutionAdapter):
     """
@@ -92,6 +104,9 @@ class MockExecutionAdapter(ExecutionAdapter):
 
         # Telemetry & call records
         self.dispatches: List[Dict[str, Any]] = []
+        self.repair_requests: List[Dict[str, Any]] = []
+        self.repair_results: Dict[str, ExecutionResult] = {}
+        self.default_repair_success: bool = True
         self.spawn_count: int = 0
         self.reuse_count: int = 0
 
@@ -167,6 +182,41 @@ class MockExecutionAdapter(ExecutionAdapter):
             is_capacity_error=False,
         )
 
+    def request_repair(
+        self,
+        worker: Worker,
+        task: Task,
+        payload: Any,
+    ) -> Optional[ExecutionResult]:
+        """
+        Processes a mock repair request, recording the call and returning simulated outcome.
+        """
+        record = {
+            "worker_id": worker.worker_id,
+            "task_id": task.task_id,
+            "domain": worker.domain,
+            "payload": payload.to_dict() if hasattr(payload, "to_dict") else str(payload),
+            "timestamp": time.time(),
+        }
+        self.repair_requests.append(record)
+        self.reuse_count += 1
+
+        if not self.auto_complete:
+            return None
+
+        if task.task_id in self.repair_results:
+            res = self.repair_results[task.task_id]
+            res.is_reuse = True
+            return res
+
+        return ExecutionResult(
+            success=self.default_repair_success,
+            result={"repaired": True, "task_id": task.task_id},
+            error=None if self.default_repair_success else f"Mock repair failed for task '{task.task_id}'",
+            duration=self.simulate_duration,
+            is_reuse=True,
+        )
+
 
 class LocalExecutionAdapter(ExecutionAdapter):
     """
@@ -205,4 +255,27 @@ class LocalExecutionAdapter(ExecutionAdapter):
             result = self._handler(worker, task)
 
         result.is_reuse = reused
+        return result
+
+    def request_repair(
+        self,
+        worker: Worker,
+        task: Task,
+        payload: Any,
+    ) -> ExecutionResult:
+        self.dispatches.append({
+            "worker_id": worker.worker_id,
+            "task_id": task.task_id,
+            "is_reuse": True,
+            "is_repair": True,
+            "payload": payload.to_dict() if hasattr(payload, "to_dict") else str(payload),
+            "timestamp": time.time(),
+        })
+        sig = inspect.signature(self._handler)
+        params_count = len(sig.parameters)
+        if params_count >= 3:
+            result = self._handler(worker, task, payload)
+        else:
+            result = self._handler(worker, task)
+        result.is_reuse = True
         return result

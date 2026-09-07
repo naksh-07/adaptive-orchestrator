@@ -28,6 +28,7 @@ from orchestrator.models import (
 from orchestrator.resolver import DependencyResolver
 from orchestrator.scheduler.ready_queue import ReadyQueue
 from orchestrator.scheduler.scheduler import EventDrivenScheduler, ScheduledDispatch
+from orchestrator.verification.engine import VerificationEngine
 from orchestrator.workers.models import Worker
 from orchestrator.workers.registry import WorkerRegistry
 from orchestrator.workspace.adapter import WorktreeAdapter
@@ -62,6 +63,7 @@ class MissionEngine:
         workspace_registry: Optional[WorkspaceRegistry] = None,
         worktree_adapter: Optional[WorktreeAdapter] = None,
         integration_manager: Optional[IntegrationManager] = None,
+        verification_engine: Optional[VerificationEngine] = None,
     ) -> None:
         self._mission = Mission(
             mission_id=mission_id,
@@ -78,11 +80,15 @@ class MissionEngine:
         self._workspace_registry = workspace_registry or WorkspaceRegistry()
         self._worktree_adapter = worktree_adapter
         self._integration_manager = integration_manager
+        self._verification_engine = verification_engine
         self._scheduler = scheduler
 
         if self._integration_manager is not None:
             self._integration_manager.queue._on_merge_completed = self._on_engine_merge_completed
             self._integration_manager.queue._on_merge_failed = self._on_engine_merge_failed
+
+        if self._verification_engine is not None and self._scheduler is not None:
+            self._scheduler.verification_engine = self._verification_engine
 
         self._events: List[Event] = []
         self._event_listeners: List[Callable[[Event], None]] = []
@@ -152,6 +158,19 @@ class MissionEngine:
         """Returns attached scheduler's feedback collector, if any."""
         return self._scheduler.feedback_collector if self._scheduler else None
 
+    @property
+    def verification_engine(self) -> Optional[VerificationEngine]:
+        """Returns attached verification engine, if configured."""
+        return self._verification_engine
+
+    def attach_verification_engine(self, verification_engine: VerificationEngine) -> None:
+        """
+        Attaches a VerificationEngine and links it to the attached scheduler.
+        """
+        self._verification_engine = verification_engine
+        if self._scheduler is not None:
+            self._scheduler.verification_engine = verification_engine
+
     def attach_integration_manager(self, integration_manager: IntegrationManager) -> None:
         """
         Attaches an IntegrationManager and wires merge callbacks.
@@ -182,6 +201,10 @@ class MissionEngine:
         if worker_registry is not None:
             self._workers = worker_registry
         self._scheduler = scheduler
+        if self._verification_engine is not None:
+            scheduler.verification_engine = self._verification_engine
+        elif scheduler.verification_engine is not None:
+            self._verification_engine = scheduler.verification_engine
         self._scheduler.attach_to_engine(self)
 
     def register_worker(self, worker: Worker) -> None:
