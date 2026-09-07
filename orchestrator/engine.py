@@ -106,6 +106,21 @@ class MissionEngine:
         """Returns the attached scheduler, if any."""
         return self._scheduler
 
+    @property
+    def aimd_controller(self) -> Optional[Any]:
+        """Returns attached scheduler's AIMD controller, if any."""
+        return self._scheduler.aimd_controller if self._scheduler else None
+
+    @property
+    def model_router(self) -> Optional[Any]:
+        """Returns attached scheduler's model router, if any."""
+        return self._scheduler.model_router if self._scheduler else None
+
+    @property
+    def feedback_collector(self) -> Optional[Any]:
+        """Returns attached scheduler's feedback collector, if any."""
+        return self._scheduler.feedback_collector if self._scheduler else None
+
     def attach_scheduler(
         self,
         scheduler: EventDrivenScheduler,
@@ -241,6 +256,7 @@ class MissionEngine:
         domain: str = "general",
         priority: float = 0.0,
         dependencies: Optional[Iterable[str]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> Task:
         """
         Adds a new task to the mission graph.
@@ -255,6 +271,7 @@ class MissionEngine:
             priority=priority,
             status=TaskState.PENDING,
             dependencies=set(dependencies or []),
+            metadata=dict(metadata or {}),
         )
 
         self._graph.add_task(task)

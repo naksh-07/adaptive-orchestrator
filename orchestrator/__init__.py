@@ -7,6 +7,10 @@ Provides the deterministic, zero-dependency foundation for:
   - Logical Readiness Resolver
   - Deterministic Priority Ready Queue
   - MissionEngine Facade & Event System
+  - Reusable Worker Pool & Domain Affinity
+  - Execution Adapter Abstraction
+  - AIMD Adaptive Concurrency Controller & Feedback Signals
+  - Intelligent Model Routing
 """
 
 from orchestrator.engine import MissionEngine
@@ -41,6 +45,22 @@ from orchestrator.models import (
     TaskState,
 )
 from orchestrator.resolver import DependencyResolver
+from orchestrator.routing import (
+    ExecutionProfile,
+    ModelRouter,
+    ModelTier,
+    RouterConfig,
+)
+from orchestrator.scheduler.aimd import (
+    AIMDConfig,
+    AIMDController,
+    AIMDState,
+)
+from orchestrator.scheduler.feedback import (
+    FeedbackCollector,
+    FeedbackSignal,
+    FeedbackSignalType,
+)
 from orchestrator.scheduler.ready_queue import ReadyQueue
 from orchestrator.scheduler.scheduler import EventDrivenScheduler, ScheduledDispatch
 from orchestrator.workers.adapter import (
@@ -71,10 +91,21 @@ __all__ = [
     "DependencyGraph",
     "GraphMutationEngine",
     "DependencyResolver",
-    # Scheduler
+    # Scheduler & AIMD
     "ReadyQueue",
     "EventDrivenScheduler",
     "ScheduledDispatch",
+    "AIMDConfig",
+    "AIMDController",
+    "AIMDState",
+    "FeedbackCollector",
+    "FeedbackSignal",
+    "FeedbackSignalType",
+    # Routing
+    "ModelTier",
+    "ExecutionProfile",
+    "RouterConfig",
+    "ModelRouter",
     # Workers
     "Worker",
     "WorkerState",

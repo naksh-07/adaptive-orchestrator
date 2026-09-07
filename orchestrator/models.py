@@ -75,6 +75,7 @@ VALID_TASK_TRANSITIONS: Dict[TaskState, Set[TaskState]] = {
     },
     TaskState.RETRYING: {
         TaskState.RUNNING,
+        TaskState.READY,
         TaskState.FAILED,
         TaskState.CANCELLED,
     },
@@ -86,6 +87,7 @@ VALID_TASK_TRANSITIONS: Dict[TaskState, Set[TaskState]] = {
     TaskState.FAILED: {
         # FAILED can be explicitly retried or invalidated
         TaskState.RETRYING,
+        TaskState.READY,
         TaskState.PENDING,
         TaskState.CANCELLED,
     },
@@ -115,6 +117,7 @@ class Task:
     completed_at: Optional[float] = None
     retry_count: int = 0
     max_retries: int = 2
+    metadata: Dict[str, Any] = field(default_factory=dict)
 
     def can_transition_to(self, target_state: TaskState) -> bool:
         """Returns True if transition from current status to target_state is permitted."""
@@ -163,6 +166,7 @@ class Task:
             "completed_at": self.completed_at,
             "retry_count": self.retry_count,
             "max_retries": self.max_retries,
+            "metadata": dict(self.metadata),
         }
 
 
@@ -253,6 +257,7 @@ class EventType(str, Enum):
     WORKER_IDLE = "WORKER_IDLE"
     WORKER_RETIRED = "WORKER_RETIRED"
     WORKER_FAILED = "WORKER_FAILED"
+    CAPACITY_CHANGED = "CAPACITY_CHANGED"
 
 
 @dataclass

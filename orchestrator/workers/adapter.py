@@ -1,15 +1,18 @@
 """
 Adaptive Orchestrator v5 - Execution Adapter & Worker Wake Boundary.
+Handles execution abstraction, passing tasks and execution profiles to workers.
 """
 
 from __future__ import annotations
 
+import inspect
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Set
 
 from orchestrator.models import Task
+from orchestrator.routing.models import ExecutionProfile
 from orchestrator.workers.models import Worker
 
 
@@ -23,6 +26,7 @@ class ExecutionResult:
     error: Optional[str] = None
     duration: float = 0.0
     is_reuse: bool = False
+    is_capacity_error: bool = False
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -31,6 +35,7 @@ class ExecutionResult:
             "error": self.error,
             "duration": self.duration,
             "is_reuse": self.is_reuse,
+            "is_capacity_error": self.is_capacity_error,
         }
 
 
@@ -41,9 +46,14 @@ class ExecutionAdapter(ABC):
     """
 
     @abstractmethod
-    def dispatch(self, worker: Worker, task: Task) -> ExecutionResult:
+    def dispatch(
+        self,
+        worker: Worker,
+        task: Task,
+        execution_profile: Optional[ExecutionProfile] = None,
+    ) -> ExecutionResult:
         """
-        Dispatches an assigned task to the designated worker.
+        Dispatches an assigned task to the designated worker with an execution profile.
         Returns the ExecutionResult upon task completion.
         """
         raise NotImplementedError
@@ -58,8 +68,9 @@ class ExecutionAdapter(ABC):
 
 class MockExecutionAdapter(ExecutionAdapter):
     """
-    Deterministic Mock Execution Adapter for Phase 2 testing and simulations.
-    Records all invocations, tracks worker reuse vs fresh spawn, and allows configurable outcomes.
+    Deterministic Mock Execution Adapter for Phase 2 & 3 testing and simulations.
+    Records all invocations, tracks worker reuse vs fresh spawn, routes execution profiles,
+    and supports simulating rate limits and capacity errors.
     """
 
     def __init__(
@@ -75,13 +86,19 @@ class MockExecutionAdapter(ExecutionAdapter):
         # Configuration overrides
         self.task_results: Dict[str, ExecutionResult] = {}
         self.fail_tasks: Set[str] = set()
+        self.rate_limit_tasks: Set[str] = set()
 
         # Telemetry & call records
         self.dispatches: List[Dict[str, Any]] = []
         self.spawn_count: int = 0
         self.reuse_count: int = 0
 
-    def dispatch(self, worker: Worker, task: Task) -> ExecutionResult:
+    def dispatch(
+        self,
+        worker: Worker,
+        task: Task,
+        execution_profile: Optional[ExecutionProfile] = None,
+    ) -> ExecutionResult:
         """
         Executes mock dispatch deterministically.
         """
@@ -96,6 +113,7 @@ class MockExecutionAdapter(ExecutionAdapter):
             "task_id": task.task_id,
             "domain": worker.domain,
             "is_reuse": reused,
+            "execution_profile": execution_profile.to_dict() if execution_profile else None,
             "timestamp": time.time(),
         }
         self.dispatches.append(record)
@@ -106,12 +124,23 @@ class MockExecutionAdapter(ExecutionAdapter):
             res.is_reuse = reused
             return res
 
+        # Check simulated rate limit / capacity errors
+        if task.task_id in self.rate_limit_tasks:
+            return ExecutionResult(
+                success=False,
+                error=f"HTTP 429: RESOURCE_EXHAUSTED for task '{task.task_id}'",
+                duration=self.simulate_duration,
+                is_reuse=reused,
+                is_capacity_error=True,
+            )
+
         if task.task_id in self.fail_tasks or not self.default_success:
             return ExecutionResult(
                 success=False,
                 error=f"Mock failure on task '{task.task_id}'",
                 duration=self.simulate_duration,
                 is_reuse=reused,
+                is_capacity_error=False,
             )
 
         return ExecutionResult(
@@ -119,6 +148,7 @@ class MockExecutionAdapter(ExecutionAdapter):
             result=dict(self.default_result),
             duration=self.simulate_duration,
             is_reuse=reused,
+            is_capacity_error=False,
         )
 
 
@@ -130,20 +160,33 @@ class LocalExecutionAdapter(ExecutionAdapter):
 
     def __init__(
         self,
-        handler: Callable[[Worker, Task], ExecutionResult]
+        handler: Callable[..., ExecutionResult]
     ) -> None:
         self._handler = handler
         self.dispatches: List[Dict[str, Any]] = []
 
-    def dispatch(self, worker: Worker, task: Task) -> ExecutionResult:
+    def dispatch(
+        self,
+        worker: Worker,
+        task: Task,
+        execution_profile: Optional[ExecutionProfile] = None,
+    ) -> ExecutionResult:
         reused = self.is_reuse(worker)
         self.dispatches.append({
             "worker_id": worker.worker_id,
             "task_id": task.task_id,
             "is_reuse": reused,
+            "execution_profile": execution_profile.to_dict() if execution_profile else None,
             "timestamp": time.time(),
         })
 
-        result = self._handler(worker, task)
+        # Support handler taking 2 args (worker, task) or 3 args (worker, task, execution_profile)
+        sig = inspect.signature(self._handler)
+        params_count = len(sig.parameters)
+        if params_count >= 3:
+            result = self._handler(worker, task, execution_profile)
+        else:
+            result = self._handler(worker, task)
+
         result.is_reuse = reused
         return result
