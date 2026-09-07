@@ -25,6 +25,12 @@ class DependencyGraph:
     def __init__(self) -> None:
         self._tasks: Dict[str, Task] = {}
 
+    @property
+    def tasks(self) -> Dict[str, Task]:
+        """Returns the internal dictionary mapping task_id to Task."""
+        return self._tasks
+
+
     def add_task(self, task: Task) -> None:
         """
         Adds a task to the graph.

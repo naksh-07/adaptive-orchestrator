@@ -73,3 +73,31 @@ class InvalidWorkerStateError(WorkerError):
 
 class NoAvailableWorkerError(WorkerError):
     """Raised when no suitable or idle worker is available for task dispatch."""
+
+
+class WorkspaceError(AdaptiveOrchestratorError):
+    """Base exception for workspace ownership and worktree errors."""
+
+
+class WorkspaceConflictError(WorkspaceError):
+    """Raised when a task write-set conflicts with an active workspace ownership."""
+
+
+class WorkspaceAcquisitionError(WorkspaceError):
+    """Raised when acquiring workspace ownership fails."""
+
+
+class WorkspaceNotFoundError(WorkspaceError):
+    """Raised when a requested workspace record cannot be found."""
+
+
+class IntegrationError(AdaptiveOrchestratorError):
+    """Base exception for merge queue and branch integration errors."""
+
+
+class MergeConflictError(IntegrationError):
+    """Raised when an automated git integration encounters merge conflicts."""
+
+
+class MergeQueueError(IntegrationError):
+    """Raised when a merge queue operation fails."""

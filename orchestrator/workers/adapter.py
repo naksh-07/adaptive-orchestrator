@@ -78,10 +78,12 @@ class MockExecutionAdapter(ExecutionAdapter):
         default_success: bool = True,
         default_result: Optional[Dict[str, Any]] = None,
         simulate_duration: float = 0.0,
+        auto_complete: bool = True,
     ) -> None:
         self.default_success = default_success
         self.default_result = default_result or {}
         self.simulate_duration = simulate_duration
+        self.auto_complete = auto_complete
 
         # Configuration overrides
         self.task_results: Dict[str, ExecutionResult] = {}
@@ -98,11 +100,25 @@ class MockExecutionAdapter(ExecutionAdapter):
         worker: Worker,
         task: Task,
         execution_profile: Optional[ExecutionProfile] = None,
-    ) -> ExecutionResult:
+    ) -> Optional[ExecutionResult]:
         """
         Executes mock dispatch deterministically.
+        If auto_complete is False, returns None to simulate async execution.
         """
+        if not self.auto_complete:
+            record = {
+                "worker_id": worker.worker_id,
+                "task_id": task.task_id,
+                "domain": worker.domain,
+                "is_reuse": self.is_reuse(worker),
+                "execution_profile": execution_profile.to_dict() if execution_profile else None,
+                "timestamp": time.time(),
+            }
+            self.dispatches.append(record)
+            return None
+
         reused = self.is_reuse(worker)
+
         if reused:
             self.reuse_count += 1
         else:

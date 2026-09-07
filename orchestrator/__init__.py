@@ -33,9 +33,26 @@ from orchestrator.exceptions import (
     UnknownDependencyError,
     WorkerError,
     WorkerNotFoundError,
+    WorkspaceAcquisitionError,
+    WorkspaceConflictError,
+    WorkspaceError,
+    WorkspaceNotFoundError,
+    IntegrationError,
+    MergeConflictError,
+    MergeQueueError,
 )
 from orchestrator.graph.dag import DependencyGraph
 from orchestrator.graph.mutations import GraphMutationEngine
+from orchestrator.integration import (
+    GitMergeAdapter,
+    IntegrationManager,
+    MergeAdapter,
+    MergeQueue,
+    MergeRequest,
+    MergeResult,
+    MergeStatus,
+    MockMergeAdapter,
+)
 from orchestrator.models import (
     Event,
     EventType,
@@ -76,6 +93,19 @@ from orchestrator.workers.models import (
     WorkerState,
 )
 from orchestrator.workers.registry import WorkerRegistry
+from orchestrator.workspace import (
+    CollisionDetector,
+    MockWorktreeAdapter,
+    NativeWorktreeAdapter,
+    WorkspaceMode,
+    WorkspaceRecord,
+    WorkspaceRegistry,
+    WorkspaceReleaseState,
+    WorktreeAdapter,
+    are_write_sets_overlapping,
+    is_path_overlap,
+    normalize_path,
+)
 
 __all__ = [
     # Facade
@@ -116,6 +146,27 @@ __all__ = [
     "ExecutionResult",
     "MockExecutionAdapter",
     "LocalExecutionAdapter",
+    # Workspace & Collision
+    "WorkspaceMode",
+    "WorkspaceReleaseState",
+    "WorkspaceRecord",
+    "CollisionDetector",
+    "normalize_path",
+    "is_path_overlap",
+    "are_write_sets_overlapping",
+    "WorkspaceRegistry",
+    "WorktreeAdapter",
+    "MockWorktreeAdapter",
+    "NativeWorktreeAdapter",
+    # Integration & Merge
+    "MergeStatus",
+    "MergeRequest",
+    "MergeResult",
+    "MergeAdapter",
+    "MockMergeAdapter",
+    "GitMergeAdapter",
+    "MergeQueue",
+    "IntegrationManager",
     # Exceptions
     "AdaptiveOrchestratorError",
     "TaskError",
@@ -135,4 +186,12 @@ __all__ = [
     "WorkerNotFoundError",
     "InvalidWorkerStateError",
     "NoAvailableWorkerError",
+    "WorkspaceError",
+    "WorkspaceConflictError",
+    "WorkspaceAcquisitionError",
+    "WorkspaceNotFoundError",
+    "IntegrationError",
+    "MergeConflictError",
+    "MergeQueueError",
 ]
+

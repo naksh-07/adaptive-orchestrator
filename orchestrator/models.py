@@ -20,9 +20,11 @@ class TaskState(str, Enum):
     PENDING = "PENDING"
     BLOCKED = "BLOCKED"
     READY = "READY"
+    ASSIGNED = "ASSIGNED"
     RUNNING = "RUNNING"
     VERIFYING = "VERIFYING"
     PASSED = "PASSED"
+    MERGED = "MERGED"
     FAILED = "FAILED"
     RETRYING = "RETRYING"
     CANCELLED = "CANCELLED"
@@ -30,17 +32,17 @@ class TaskState(str, Enum):
     @property
     def is_terminal(self) -> bool:
         """Indicates whether this state is terminal under normal execution."""
-        return self in (TaskState.PASSED, TaskState.FAILED, TaskState.CANCELLED)
+        return self in (TaskState.PASSED, TaskState.MERGED, TaskState.FAILED, TaskState.CANCELLED)
 
     @property
     def is_success(self) -> bool:
         """Indicates whether the task completed successfully and satisfies dependents."""
-        return self == TaskState.PASSED
+        return self in (TaskState.PASSED, TaskState.MERGED)
 
     @property
     def is_active(self) -> bool:
         """Indicates whether the task is actively executing or undergoing verification."""
-        return self in (TaskState.RUNNING, TaskState.VERIFYING, TaskState.RETRYING)
+        return self in (TaskState.ASSIGNED, TaskState.RUNNING, TaskState.VERIFYING, TaskState.RETRYING)
 
 
 # Explicit Valid State Transitions for Tasks
@@ -56,8 +58,15 @@ VALID_TASK_TRANSITIONS: Dict[TaskState, Set[TaskState]] = {
         TaskState.CANCELLED,
     },
     TaskState.READY: {
+        TaskState.ASSIGNED,
         TaskState.RUNNING,
         TaskState.BLOCKED,
+        TaskState.CANCELLED,
+    },
+    TaskState.ASSIGNED: {
+        TaskState.RUNNING,
+        TaskState.READY,
+        TaskState.FAILED,
         TaskState.CANCELLED,
     },
     TaskState.RUNNING: {
@@ -74,13 +83,21 @@ VALID_TASK_TRANSITIONS: Dict[TaskState, Set[TaskState]] = {
         TaskState.CANCELLED,
     },
     TaskState.RETRYING: {
+        TaskState.ASSIGNED,
         TaskState.RUNNING,
         TaskState.READY,
         TaskState.FAILED,
         TaskState.CANCELLED,
     },
     TaskState.PASSED: {
-        # PASSED is terminal during standard execution; may transition to PENDING on graph invalidation
+        # PASSED can transition to MERGED (integration), FAILED, or PENDING/CANCELLED on invalidation
+        TaskState.MERGED,
+        TaskState.FAILED,
+        TaskState.PENDING,
+        TaskState.CANCELLED,
+    },
+    TaskState.MERGED: {
+        # MERGED is terminal; can transition on graph invalidation
         TaskState.PENDING,
         TaskState.CANCELLED,
     },
@@ -102,14 +119,21 @@ class Task:
     Minimal foundation model strictly decoupled from physical worker and workspace mechanics.
     """
     task_id: str
-    mission_id: str
-    title: str
+    mission_id: str = "default_mission"
+    title: str = ""
+
     description: str = ""
     status: TaskState = TaskState.PENDING
     domain: str = "general"
     dependencies: Set[str] = field(default_factory=set)
     dependents: Set[str] = field(default_factory=set)
     priority: float = 0.0
+    read_set: Set[str] = field(default_factory=set)
+    write_set: Set[str] = field(default_factory=set)
+    workspace_mode: str = "branch"
+    assigned_worker_id: Optional[str] = None
+    workspace_path: Optional[str] = None
+    branch_name: Optional[str] = None
     result: Optional[Dict[str, Any]] = None
     error: Optional[str] = None
     created_at: float = field(default_factory=time.time)
@@ -142,7 +166,7 @@ class Task:
 
         if target_state == TaskState.RUNNING and self.started_at is None:
             self.started_at = now
-        elif target_state in (TaskState.PASSED, TaskState.FAILED, TaskState.CANCELLED):
+        elif target_state in (TaskState.PASSED, TaskState.MERGED, TaskState.FAILED, TaskState.CANCELLED):
             self.completed_at = now
         elif target_state == TaskState.RETRYING:
             self.retry_count += 1
@@ -159,6 +183,12 @@ class Task:
             "dependencies": sorted(list(self.dependencies)),
             "dependents": sorted(list(self.dependents)),
             "priority": self.priority,
+            "read_set": sorted(list(self.read_set)),
+            "write_set": sorted(list(self.write_set)),
+            "workspace_mode": self.workspace_mode,
+            "assigned_worker_id": self.assigned_worker_id,
+            "workspace_path": self.workspace_path,
+            "branch_name": self.branch_name,
             "result": self.result,
             "error": self.error,
             "created_at": self.created_at,
@@ -175,6 +205,8 @@ class MissionState(str, Enum):
     DRAFTING = "DRAFTING"
     PLAN_APPROVED = "PLAN_APPROVED"
     EXECUTING = "EXECUTING"
+    INTEGRATING = "INTEGRATING"
+    AUDITING = "AUDITING"
     PAUSED = "PAUSED"
     COMPLETED = "COMPLETED"
     FAILED = "FAILED"
@@ -184,7 +216,24 @@ class MissionState(str, Enum):
 VALID_MISSION_TRANSITIONS: Dict[MissionState, Set[MissionState]] = {
     MissionState.DRAFTING: {MissionState.PLAN_APPROVED, MissionState.CANCELLED},
     MissionState.PLAN_APPROVED: {MissionState.EXECUTING, MissionState.CANCELLED},
-    MissionState.EXECUTING: {MissionState.PAUSED, MissionState.COMPLETED, MissionState.FAILED, MissionState.CANCELLED},
+    MissionState.EXECUTING: {
+        MissionState.INTEGRATING,
+        MissionState.PAUSED,
+        MissionState.COMPLETED,
+        MissionState.FAILED,
+        MissionState.CANCELLED,
+    },
+    MissionState.INTEGRATING: {
+        MissionState.AUDITING,
+        MissionState.COMPLETED,
+        MissionState.FAILED,
+        MissionState.CANCELLED,
+    },
+    MissionState.AUDITING: {
+        MissionState.COMPLETED,
+        MissionState.FAILED,
+        MissionState.CANCELLED,
+    },
     MissionState.PAUSED: {MissionState.EXECUTING, MissionState.CANCELLED},
     MissionState.COMPLETED: set(),
     MissionState.FAILED: set(),
@@ -258,6 +307,13 @@ class EventType(str, Enum):
     WORKER_RETIRED = "WORKER_RETIRED"
     WORKER_FAILED = "WORKER_FAILED"
     CAPACITY_CHANGED = "CAPACITY_CHANGED"
+    WORKSPACE_ACQUIRED = "WORKSPACE_ACQUIRED"
+    WORKSPACE_RELEASED = "WORKSPACE_RELEASED"
+    WORKSPACE_CONFLICT = "WORKSPACE_CONFLICT"
+    MERGE_READY = "MERGE_READY"
+    MERGE_STARTED = "MERGE_STARTED"
+    MERGE_COMPLETED = "MERGE_COMPLETED"
+    MERGE_FAILED = "MERGE_FAILED"
 
 
 @dataclass

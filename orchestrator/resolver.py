@@ -32,9 +32,11 @@ class DependencyResolver:
 
         # Terminal, active, or in-flight tasks cannot become newly ready
         if task.status in (
+            TaskState.ASSIGNED,
             TaskState.RUNNING,
             TaskState.VERIFYING,
             TaskState.PASSED,
+            TaskState.MERGED,
             TaskState.FAILED,
             TaskState.RETRYING,
             TaskState.CANCELLED,
