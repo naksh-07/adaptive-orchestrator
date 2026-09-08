@@ -20,7 +20,7 @@ from orchestrator.exceptions import (
 )
 from orchestrator.integration.manager import IntegrationManager
 from orchestrator.integration.models import MergeResult
-from orchestrator.models import Event, EventType, MissionState, Task, TaskState
+from orchestrator.models import Event, EventEmitter, EventType, MissionState, Task, TaskState
 from orchestrator.routing.models import ExecutionProfile
 from orchestrator.routing.router import ModelRouter
 from orchestrator.scheduler.aimd import AIMDConfig, AIMDController
@@ -95,7 +95,7 @@ class EventDrivenScheduler:
         on_task_started: Optional[Callable[[str], Task]] = None,
         on_task_completed: Optional[Callable[[str, Optional[Dict[str, Any]]], Tuple[Task, List[Task]]]] = None,
         on_task_failed: Optional[Callable[[str, str, bool], Task]] = None,
-        event_emitter: Optional[Callable[[EventType, Optional[str], Optional[Dict[str, Any]]], Event]] = None,
+        event_emitter: Optional[EventEmitter] = None,
         engine: Optional[MissionEngine] = None,
     ) -> None:
         self._ready_queue = ready_queue

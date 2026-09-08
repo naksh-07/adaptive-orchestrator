@@ -7,7 +7,7 @@ from __future__ import annotations
 import time
 from dataclasses import InitVar, dataclass, field
 from enum import Enum
-from typing import Any, Dict, Optional, Set
+from typing import Any, Dict, Optional, Protocol, Set
 
 from orchestrator.exceptions import InvalidStateTransitionError
 
@@ -382,3 +382,16 @@ class Event:
             "sequence": self.sequence,
             "payload": self.payload,
         }
+
+
+class EventEmitter(Protocol):
+    """Protocol for callable event emitters."""
+    def __call__(
+        self,
+        event_type: EventType,
+        task_id: Optional[str] = None,
+        payload: Optional[Dict[str, Any]] = None,
+        **kwargs: Any,
+    ) -> Event:
+        ...
+

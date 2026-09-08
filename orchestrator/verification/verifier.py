@@ -38,6 +38,8 @@ class Verifier(ABC):
         task: Task,
         policy: Optional[VerificationPolicy] = None,
         context: Optional[Dict[str, Any]] = None,
+        execution_result: Optional[Dict[str, Any]] = None,
+        **kwargs: Any,
     ) -> VerificationResult:
         """
         Executes verification for a task deliverable and returns a structured result.
@@ -70,6 +72,8 @@ class Tier1SelfTestVerifier(Verifier):
         task: Task,
         policy: Optional[VerificationPolicy] = None,
         context: Optional[Dict[str, Any]] = None,
+        execution_result: Optional[Dict[str, Any]] = None,
+        **kwargs: Any,
     ) -> VerificationResult:
         """
         Executes Tier 1 self-validation.
@@ -188,6 +192,8 @@ class IndependentVerifier(Verifier):
         evidence_so_far: List[VerificationEvidence],
         policy: Optional[VerificationPolicy] = None,
         context: Optional[Dict[str, Any]] = None,
+        execution_result: Optional[Dict[str, Any]] = None,
+        **kwargs: Any,
     ) -> VerificationResult:
         """
         Conducts independent verification without trusting Tier 1 blindly.
@@ -199,8 +205,20 @@ class IndependentVerifier(Verifier):
         task: Task,
         policy: Optional[VerificationPolicy] = None,
         context: Optional[Dict[str, Any]] = None,
+        execution_result: Optional[Dict[str, Any]] = None,
+        **kwargs: Any,
     ) -> VerificationResult:
-        return self.verify_independent(task, evidence_so_far=[], policy=policy, context=context)
+        try:
+            return self.verify_independent(
+                task,
+                evidence_so_far=[],
+                policy=policy,
+                context=context,
+                execution_result=execution_result,
+                **kwargs,
+            )
+        except TypeError:
+            return self.verify_independent(task, evidence_so_far=[], policy=policy, context=context)
 
 
 class MockIndependentVerifier(IndependentVerifier):
@@ -242,6 +260,8 @@ class MockIndependentVerifier(IndependentVerifier):
         evidence_so_far: List[VerificationEvidence],
         policy: Optional[VerificationPolicy] = None,
         context: Optional[Dict[str, Any]] = None,
+        execution_result: Optional[Dict[str, Any]] = None,
+        **kwargs: Any,
     ) -> VerificationResult:
         start_time = time.time()
         task_id = task.task_id
@@ -607,6 +627,8 @@ class Tier4VictoryAuditVerifier(Verifier):
         task: Task,
         policy: Optional[VerificationPolicy] = None,
         context: Optional[Dict[str, Any]] = None,
+        execution_result: Optional[Dict[str, Any]] = None,
+        **kwargs: Any,
     ) -> VerificationResult:
         """
         Single-task verifier interface compliance.

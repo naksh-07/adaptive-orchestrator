@@ -9,7 +9,7 @@ from __future__ import annotations
 import time
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple
 
-from orchestrator.models import Event, EventType, MissionState, TaskState
+from orchestrator.models import Event, EventEmitter, EventType, MissionState, TaskState
 from orchestrator.verification.models import (
     FailureClassification,
     VerificationEvidence,
@@ -48,14 +48,14 @@ class VerificationEngine:
         tier3_verifier: Optional[Tier3AdversarialVerifier] = None,
         tier4_verifier: Optional[Tier4VictoryAuditVerifier] = None,
         repair_coordinator: Optional[RepairCoordinator] = None,
-        event_emitter: Optional[Callable[[EventType, Optional[str], Optional[Dict[str, Any]]], Event]] = None,
+        event_emitter: Optional[EventEmitter] = None,
     ) -> None:
         self._tier1_verifier = tier1_verifier or Tier1SelfTestVerifier()
         self._independent_verifier = independent_verifier or MockIndependentVerifier()
         self._tier3_verifier = tier3_verifier or Tier3AdversarialVerifier()
         self._tier4_verifier = tier4_verifier or Tier4VictoryAuditVerifier()
         self._repair_coordinator = repair_coordinator or RepairCoordinator()
-        self._event_emitter = event_emitter
+        self._event_emitter: Optional[EventEmitter] = event_emitter
 
         # In-memory history ledger: task_id -> list of VerificationResult
         self._history: Dict[str, List[VerificationResult]] = {}
@@ -189,6 +189,7 @@ class VerificationEngine:
                         evidence_so_far=all_evidences,
                         policy=active_policy,
                         context=context,
+                        execution_result=execution_result,
                     )
                 except TypeError:
                     t2_result = self._independent_verifier.verify(task, execution_result=execution_result)

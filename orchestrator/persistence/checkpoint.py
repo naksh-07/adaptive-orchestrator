@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass, field
-from typing import Callable, Optional, Set
+from typing import Any, Callable, Optional, Set
 
 from orchestrator.models import Event, EventType
 from orchestrator.persistence.models import CheckpointTrigger

@@ -41,3 +41,5 @@ Thumbs.db
 # Antigravity runtime scratch
 brain/
 scratch/
+uv.lock
+

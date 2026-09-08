@@ -36,3 +36,8 @@ Issues = "https://github.com/naksh-07/adaptive-orchestrator/issues"
 adaptive-doctor = "scripts.doctor:main"
 adaptive-ledger = "scripts.budget_ledger:main"
 adaptive-validate = "scripts.validate_skill:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["orchestrator*"]
+

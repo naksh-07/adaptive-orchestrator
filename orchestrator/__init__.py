@@ -55,6 +55,7 @@ from orchestrator.integration import (
 )
 from orchestrator.models import (
     Event,
+    EventEmitter,
     EventType,
     Mission,
     MissionState,
@@ -158,6 +159,7 @@ __all__ = [
     "Task",
     "TaskState",
     "Event",
+    "EventEmitter",
     "EventType",
     # Graph & Resolver
     "DependencyGraph",
