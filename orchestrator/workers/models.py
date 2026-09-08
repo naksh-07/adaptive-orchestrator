@@ -20,6 +20,8 @@ class WorkerState(str, Enum):
     BUSY = "BUSY"
     FAILED = "FAILED"
     RETIRED = "RETIRED"
+    DEGRADED = "FAILED"
+    OFFLINE = "FAILED"
 
     @property
     def is_available(self) -> bool:
@@ -78,6 +80,8 @@ class Worker:
     """
     worker_id: str
     domain: str = "general"
+    supported_domains: Any = field(default_factory=set)
+    max_concurrency: int = 1
     state: WorkerState = WorkerState.IDLE
     current_task_id: Optional[str] = None
     task_history: List[str] = field(default_factory=list)
@@ -86,6 +90,34 @@ class Worker:
     last_active_at: float = field(default_factory=time.time)
     conversation_id: Optional[str] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        if isinstance(self.supported_domains, list):
+            self.supported_domains = set(self.supported_domains)
+        elif not isinstance(self.supported_domains, set):
+            self.supported_domains = set(self.supported_domains) if self.supported_domains else set()
+        if not self.supported_domains and self.domain:
+            self.supported_domains = {self.domain}
+
+    def mark_failed(self, reason: str = "") -> None:
+        """Transitions worker to FAILED state."""
+        self.transition_to(WorkerState.FAILED, reason=reason)
+
+    def supports_domain(self, domain: str) -> bool:
+        """Checks if worker supports a specific domain."""
+        if domain == "general" or "general" in self.supported_domains:
+            return True
+        return domain in self.supported_domains or self.domain == domain
+
+    @property
+    def tasks_completed(self) -> int:
+        """Returns total tasks completed by this worker."""
+        return self.metrics.tasks_completed
+
+    @property
+    def tasks_failed(self) -> int:
+        """Returns total tasks failed by this worker."""
+        return self.metrics.tasks_failed
 
     @property
     def is_idle(self) -> bool:
@@ -197,6 +229,8 @@ class Worker:
         return {
             "worker_id": self.worker_id,
             "domain": self.domain,
+            "supported_domains": list(self.supported_domains),
+            "max_concurrency": self.max_concurrency,
             "state": self.state.value,
             "current_task_id": self.current_task_id,
             "task_history": list(self.task_history),

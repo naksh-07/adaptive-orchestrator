@@ -59,54 +59,85 @@ class WorkspaceRegistry:
 
         return True, None
 
+    def is_locked(self, task_id: str) -> bool:
+        """Returns True if task_id holds an active workspace lock."""
+        return task_id in self._active_by_task
+
+    def get_active_locks(self) -> List[WorkspaceRecord]:
+        """Returns snapshot list of currently active workspace locks/records."""
+        return list(self._active_by_task.values())
+
+    def get_active_records(self) -> List[WorkspaceRecord]:
+        """Returns snapshot list of currently active workspace records."""
+        return list(self._active_by_task.values())
+
     def acquire(
         self,
-        task: Task,
+        task: Optional[Any] = None,
         worker: Optional[Any] = None,
         workspace_mode: Optional[str] = None,
         workspace_path: Optional[str] = None,
         branch_name: Optional[str] = None,
         worker_id: Optional[str] = None,
+        task_id: Optional[str] = None,
+        mode: Optional[Any] = None,
+        read_set: Optional[Set[str]] = None,
+        write_set: Optional[Set[str]] = None,
     ) -> WorkspaceRecord:
         """
         Acquires exclusive workspace ownership for a task and worker.
         Raises WorkspaceConflictError if a write-collision exists.
         Raises WorkspaceAcquisitionError if duplicate ownership is attempted.
         """
+        tid = task_id or (getattr(task, "task_id", str(task)) if task else None)
+        if not tid:
+            raise ValueError("Must provide task or task_id to acquire workspace")
+
         w_id = worker_id or (getattr(worker, "worker_id", str(worker)) if worker else "w_default")
 
         # 1. Duplicate ownership validation
-        if task.task_id in self._active_by_task:
+        if tid in self._active_by_task:
             raise WorkspaceAcquisitionError(
-                f"Task '{task.task_id}' already holds active workspace ownership"
+                f"Task '{tid}' already holds active workspace ownership"
             )
         if w_id in self._active_by_worker:
             raise WorkspaceAcquisitionError(
                 f"Worker '{w_id}' already holds active workspace ownership"
             )
 
+        task_read_set = read_set if read_set is not None else getattr(task, "read_set", set())
+        task_write_set = write_set if write_set is not None else getattr(task, "write_set", set())
+
+        # If task object is not a Task instance, build dummy task object for collision detection
+        if hasattr(task, "task_id"):
+            task_obj = task
+        else:
+            from orchestrator.models import Task
+            task_obj = Task(id=tid, description="ad-hoc", read_set=task_read_set, write_set=task_write_set)
 
         # 2. Collision detection
-        conflict = CollisionDetector.detect_active_conflict(task, self._active_by_task.values())
+        conflict = CollisionDetector.detect_active_conflict(task_obj, self._active_by_task.values())
         if conflict:
             conflicting_record, task_path, active_path = conflict
             raise WorkspaceConflictError(
-                f"Write conflict: Task '{task.task_id}' path '{task_path}' overlaps with "
+                f"Write conflict: Task '{tid}' path '{task_path}' overlaps with "
                 f"active task '{conflicting_record.task_id}' path '{active_path}'"
             )
 
-        mode = workspace_mode or getattr(task, "workspace_mode", WorkspaceMode.BRANCH.value)
-        path = workspace_path or f".worktrees/{task.task_id}"
-        branch = branch_name or f"ao/{task.task_id}"
+        eff_mode = mode or workspace_mode or getattr(task, "workspace_mode", WorkspaceMode.BRANCH.value)
+        if hasattr(eff_mode, "value"):
+            eff_mode = eff_mode.value
+        path = workspace_path or f".worktrees/{tid}"
+        branch = branch_name or f"ao/{tid}"
 
         # 3. Create record with normalized paths
-        normalized_reads = {normalize_path(p) for p in getattr(task, "read_set", set()) if p}
-        normalized_writes = {normalize_path(p) for p in getattr(task, "write_set", set()) if p}
+        normalized_reads = {normalize_path(p) for p in task_read_set if p}
+        normalized_writes = {normalize_path(p) for p in task_write_set if p}
 
         record = WorkspaceRecord(
-            task_id=task.task_id,
+            task_id=tid,
             worker_id=w_id,
-            workspace_mode=mode,
+            workspace_mode=eff_mode,
             workspace_path=path,
             branch_name=branch,
             read_set=normalized_reads,
@@ -115,10 +146,9 @@ class WorkspaceRegistry:
             release_state=WorkspaceReleaseState.ACTIVE,
         )
 
-        self._active_by_task[task.task_id] = record
+        self._active_by_task[tid] = record
         self._active_by_worker[w_id] = record
         return record
-
 
     def release(
         self,
@@ -133,6 +163,9 @@ class WorkspaceRegistry:
         """
         record = self._active_by_task.pop(task_id, None)
         if record is None:
+            # Idempotent duplicate release: if task was already released in history, return None safely
+            if any(r.task_id == task_id for r in self._history):
+                return None
             if raise_if_missing:
                 raise WorkspaceNotFoundError(f"No active workspace ownership found for task '{task_id}'")
             return None

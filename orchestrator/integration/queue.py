@@ -97,8 +97,8 @@ class MergeQueue:
 
     def enqueue(
         self,
-        task: Task,
-        worker_id: str,
+        task: Any,
+        worker_id: Optional[str] = None,
         branch_name: Optional[str] = None,
         workspace_path: Optional[str] = None,
         priority: Optional[float] = None,
@@ -107,6 +107,14 @@ class MergeQueue:
         Enqueues a merge-ready task into the sequential merge queue.
         Maintains deterministic ordering: higher priority first, then FIFO by enqueued_at.
         """
+        if isinstance(task, MergeRequest):
+            for req in self._queue:
+                if req.task_id == task.task_id:
+                    return req
+            self._queue.append(task)
+            self._queue.sort(key=lambda r: (-r.priority, r.enqueued_at))
+            return task
+
         branch = branch_name or getattr(task, "branch_name", None) or f"ao/{task.task_id}"
         path = workspace_path or getattr(task, "workspace_path", None) or f".worktrees/{task.task_id}"
         prio = priority if priority is not None else getattr(task, "priority", 0.0)

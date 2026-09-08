@@ -6,11 +6,12 @@ Connects Mission -> DependencyGraph -> DependencyResolver -> ReadyQueue -> Event
 from __future__ import annotations
 
 import time
-from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Union
 
 from orchestrator.exceptions import (
     AdaptiveOrchestratorError,
     GraphMutationError,
+    InvalidStateTransitionError,
     TaskNotFoundError,
     TaskNotReadyError,
 )
@@ -25,6 +26,8 @@ from orchestrator.models import (
     Task,
     TaskState,
 )
+from orchestrator.verification.models import VictoryAuditResult
+from orchestrator.verification.verifier import Tier4VictoryAuditVerifier
 from orchestrator.resolver import DependencyResolver
 from orchestrator.scheduler.ready_queue import ReadyQueue
 from orchestrator.scheduler.scheduler import EventDrivenScheduler, ScheduledDispatch
@@ -32,8 +35,18 @@ from orchestrator.verification.engine import VerificationEngine
 from orchestrator.workers.models import Worker
 from orchestrator.workers.registry import WorkerRegistry
 from orchestrator.workspace.adapter import WorktreeAdapter
-from orchestrator.workspace.models import WorkspaceReleaseState
+from orchestrator.workspace.models import WorkspaceMode, WorkspaceReleaseState
 from orchestrator.workspace.registry import WorkspaceRegistry
+ 
+ 
+class TaskList(list):
+    """
+    List of tasks supporting both Task instances and string task_id checks in __contains__.
+    """
+    def __contains__(self, item: Any) -> bool:
+        if isinstance(item, str):
+            return any(getattr(t, "task_id", None) == item or getattr(t, "id", None) == item for t in self)
+        return super().__contains__(item)
 
 
 class MissionEngine:
@@ -64,6 +77,12 @@ class MissionEngine:
         worktree_adapter: Optional[WorktreeAdapter] = None,
         integration_manager: Optional[IntegrationManager] = None,
         verification_engine: Optional[VerificationEngine] = None,
+        persistence_manager: Optional[Any] = None,
+        telemetry_collector: Optional[Any] = None,
+        auto_audit: bool = True,
+        tier4_verifier: Optional[Tier4VictoryAuditVerifier] = None,
+        required_artifacts: Optional[List[str]] = None,
+        acceptance_criteria: Optional[Dict[str, Any]] = None,
     ) -> None:
         self._mission = Mission(
             mission_id=mission_id,
@@ -82,6 +101,12 @@ class MissionEngine:
         self._integration_manager = integration_manager
         self._verification_engine = verification_engine
         self._scheduler = scheduler
+        self._persistence_manager = persistence_manager
+        self._telemetry_collector = telemetry_collector
+        self._auto_audit = auto_audit
+        self._tier4_verifier = tier4_verifier
+        self._required_artifacts = required_artifacts
+        self._acceptance_criteria = acceptance_criteria
 
         if self._integration_manager is not None:
             self._integration_manager.queue._on_merge_completed = self._on_engine_merge_completed
@@ -103,10 +128,63 @@ class MissionEngine:
         if self._scheduler is not None:
             self._scheduler.attach_to_engine(self)
 
+        if self._persistence_manager is not None:
+            self._persistence_manager.attach_to_engine(self)
+
+        if self._telemetry_collector is not None:
+            self._telemetry_collector.attach_to_engine(self)
+
+    @property
+    def persistence_manager(self) -> Optional[Any]:
+        """Returns attached persistence manager, if any."""
+        return self._persistence_manager
+
+    @property
+    def telemetry_collector(self) -> Optional[Any]:
+        """Returns attached telemetry collector, if any."""
+        return self._telemetry_collector
+
+    @property
+    def auto_audit(self) -> bool:
+        """Returns whether Tier 4 Victory Audit is automatically triggered upon task completion."""
+        return self._auto_audit
+
+    @auto_audit.setter
+    def auto_audit(self, value: bool) -> None:
+        self._auto_audit = value
+
+    def attach_persistence_manager(self, persistence_manager: Any) -> None:
+        """Attaches a PersistenceManager to the engine."""
+        self._persistence_manager = persistence_manager
+        persistence_manager.attach_to_engine(self)
+
+    def attach_persistence(self, persistence_manager: Any) -> None:
+        """Alias for attach_persistence_manager."""
+        self.attach_persistence_manager(persistence_manager)
+
+    def attach_telemetry_collector(self, telemetry_collector: Any) -> None:
+        """Attaches a TelemetryCollector to the engine."""
+        self._telemetry_collector = telemetry_collector
+        telemetry_collector.attach_to_engine(self)
+
+    def attach_telemetry(self, telemetry_collector: Any) -> None:
+        """Alias for attach_telemetry_collector."""
+        self.attach_telemetry_collector(telemetry_collector)
+
     @property
     def mission(self) -> Mission:
         """Returns the mission entity."""
         return self._mission
+
+    @property
+    def state(self) -> MissionState:
+        """Returns current mission state."""
+        return self._mission.state
+
+    @property
+    def tasks(self) -> Dict[str, Task]:
+        """Returns dictionary of all tasks by task_id."""
+        return {t.task_id: t for t in self._graph.all_tasks()}
 
     @property
     def graph(self) -> DependencyGraph:
@@ -119,8 +197,18 @@ class MissionEngine:
         return self._ready_queue
 
     @property
+    def ready_queue_size(self) -> int:
+        """Returns the number of ready tasks currently enqueued."""
+        return len(self._ready_queue)
+
+    @property
     def workers(self) -> WorkerRegistry:
         """Returns the worker registry."""
+        return self._workers
+
+    @property
+    def worker_registry(self) -> WorkerRegistry:
+        """Returns the worker registry (canonical alias)."""
         return self._workers
 
     @property
@@ -144,9 +232,23 @@ class MissionEngine:
         return self._integration_manager
 
     @property
-    def aimd_controller(self) -> Optional[Any]:
-        """Returns attached scheduler's AIMD controller, if any."""
-        return self._scheduler.aimd_controller if self._scheduler else None
+    def aimd_controller(self) -> Any:
+        """Returns attached scheduler's AIMD controller, if any, or default AIMDController."""
+        if self._scheduler and self._scheduler.aimd_controller:
+            return self._scheduler.aimd_controller
+        if not hasattr(self, "_default_aimd") or self._default_aimd is None:
+            from orchestrator.scheduler.aimd import AIMDController
+            self._default_aimd = AIMDController()
+        return self._default_aimd
+
+    def get_task(self, task_id: str) -> Task:
+        """Returns the task with the specified task_id from the dependency graph."""
+        return self._graph.get_task(task_id)
+
+    def get_tasks_by_state(self, state: Union[TaskState, str]) -> List[Task]:
+        """Returns all tasks in the mission graph with the given state."""
+        st_val = state.value if hasattr(state, "value") else str(state)
+        return [t for t in self._graph.all_tasks() if t.status.value == st_val]
 
     @property
     def model_router(self) -> Optional[Any]:
@@ -207,14 +309,108 @@ class MissionEngine:
             self._verification_engine = scheduler.verification_engine
         self._scheduler.attach_to_engine(self)
 
-    def register_worker(self, worker: Worker) -> None:
+    def register_worker(
+        self,
+        worker_or_id: Optional[Union[Worker, str]] = None,
+        domains: Optional[List[str]] = None,
+        max_concurrency: int = 1,
+        worker_id: Optional[str] = None,
+    ) -> Worker:
         """
         Registers a worker into the engine's worker registry and emits WORKER_REGISTERED.
+        Accepts either a Worker object or worker_id and domains list.
         """
+        wid = worker_id or (worker_or_id if isinstance(worker_or_id, str) else None)
+        if isinstance(worker_or_id, Worker):
+            worker = worker_or_id
+        else:
+            if not wid:
+                raise ValueError("Must provide a worker_id or Worker instance")
+            domain_list = domains or ["general"]
+            worker = Worker(
+                worker_id=wid,
+                domain=domain_list[0],
+                supported_domains=set(domain_list),
+                max_concurrency=max_concurrency,
+            )
         self._workers.register_worker(worker)
         self._emit(
             EventType.WORKER_REGISTERED,
             payload={"worker_id": worker.worker_id, "domain": worker.domain}
+        )
+        return worker
+
+    def assign_next(self) -> Optional[ScheduledDispatch]:
+        """
+        Dispatches the next eligible task from the ready queue to an available compatible worker.
+        Uses attached scheduler if present, or performs direct matching via worker registry.
+        """
+        if self._scheduler is not None:
+            dispatches = self._scheduler.evaluate()
+            return dispatches[0] if dispatches else None
+
+        task = self._ready_queue.pop_optional()
+        if not task:
+            return None
+
+        # Find compatible idle worker
+        worker = None
+        for w in self._workers.get_idle_workers():
+            if task.domain in w.supported_domains or "general" in w.supported_domains or w.domain == task.domain:
+                worker = w
+                break
+
+        if not worker:
+            self._ready_queue.push(task)
+            return None
+
+        self.mark_task_assigned(task.task_id, worker_id=worker.worker_id)
+        self.mark_task_started(task.task_id)
+        self._workers.assign_task(worker.worker_id, task.task_id)
+        dispatch = ScheduledDispatch(
+            task_id=task.task_id,
+            worker_id=worker.worker_id,
+            domain=task.domain,
+            is_reuse=(worker.tasks_completed > 0),
+            execution_profile=getattr(task, "execution_profile", None),
+        )
+        return dispatch
+
+    def handle_worker_failure(self, worker_id: str, reason: str = "") -> None:
+        """
+        Handles worker failure: transitions worker to DEGRADED,
+        finds task assigned to worker, resets task to READY (or FAILED if retries exhausted),
+        and releases any workspace locks held by the task.
+        """
+        if self._scheduler is not None:
+            self._scheduler.handle_worker_failure(worker_id=worker_id, error=reason)
+            return
+
+        worker = self._workers.get(worker_id)
+        if not worker:
+            return
+
+        worker.mark_failed(reason)
+        # Find any task assigned to this worker
+        for task in self._graph.all_tasks():
+            if task.assigned_worker_id == worker_id and task.status.is_active:
+                task.assigned_worker_id = None
+                if task.retry_count < task.max_retries:
+                    task.transition_to(TaskState.RETRYING, reason=f"Worker failure: {reason}")
+                    task.transition_to(TaskState.READY, reason=f"Worker failure: {reason}")
+                    if not self._ready_queue.contains(task.task_id):
+                        unlock_val = self._resolver.calculate_unlock_value(task.task_id)
+                        self._ready_queue.push(task, unlock_value=unlock_val)
+                else:
+                    task.transition_to(TaskState.FAILED, reason=f"Worker failure: {reason} (retries exhausted)")
+
+                # Release workspace if held
+                if self._workspace_registry.is_locked(task.task_id):
+                    self._workspace_registry.release(task.task_id)
+
+        self._emit(
+            EventType.WORKER_FAILED,
+            payload={"worker_id": worker_id, "reason": reason}
         )
 
     def evaluate_scheduler(self) -> List[ScheduledDispatch]:
@@ -298,6 +494,10 @@ class MissionEngine:
         if self._scheduler is not None:
             self._scheduler.evaluate()
 
+    def start(self) -> None:
+        """Alias for start_mission."""
+        self.start_mission()
+
     def pause_mission(self, reason: str = "") -> None:
         """Pauses mission execution."""
         old_state = self._mission.state
@@ -316,14 +516,144 @@ class MissionEngine:
             payload={"old_state": old_state.value, "new_state": self._mission.state.value}
         )
 
+    def start_integrating(self) -> None:
+        """Transitions mission state to INTEGRATING."""
+        old_state = self._mission.state
+        self._mission.transition_to(MissionState.INTEGRATING)
+        self._emit(
+            EventType.MISSION_STATE_CHANGED,
+            payload={"old_state": old_state.value, "new_state": self._mission.state.value}
+        )
+
+    def start_auditing(self) -> None:
+        """Transitions mission state to AUDITING."""
+        old_state = self._mission.state
+        self._mission.transition_to(MissionState.AUDITING)
+        self._emit(
+            EventType.MISSION_STATE_CHANGED,
+            payload={"old_state": old_state.value, "new_state": self._mission.state.value}
+        )
+
+    def _check_mission_completion(self) -> None:
+        """
+        Evaluates mission completion progression:
+        EXECUTING -> INTEGRATING (if unmerged writes remain) -> AUDITING -> COMPLETED (via Tier 4 Audit).
+        """
+        all_passed = all(t.status.is_terminal and t.status.is_success for t in self._graph.all_tasks())
+        if not (all_passed and self._graph.task_count() > 0):
+            return
+
+        # Check if any tasks are in branch mode with writes not yet merged
+        has_unmerged_writes = any(
+            t.workspace_mode == "branch" and t.write_set and t.status != TaskState.MERGED
+            for t in self._graph.all_tasks()
+        )
+
+        if has_unmerged_writes:
+            if self._mission.state == MissionState.EXECUTING:
+                old_state = self._mission.state
+                self._mission.transition_to(MissionState.INTEGRATING)
+                self._emit(
+                    EventType.MISSION_STATE_CHANGED,
+                    payload={"old_state": old_state.value, "new_state": self._mission.state.value}
+                )
+            return
+
+        # All writes merged (or no writes needed merge). Advance to AUDITING
+        if self._mission.state in (MissionState.EXECUTING, MissionState.INTEGRATING):
+            old_state = self._mission.state
+            self._mission.transition_to(MissionState.AUDITING)
+            self._emit(
+                EventType.MISSION_STATE_CHANGED,
+                payload={"old_state": old_state.value, "new_state": self._mission.state.value}
+            )
+
+        # Trigger automatic Victory Audit if enabled
+        if self._auto_audit and self._mission.state == MissionState.AUDITING:
+            self.run_victory_audit(
+                required_artifacts=self._required_artifacts,
+                acceptance_criteria=self._acceptance_criteria,
+            )
+
+    def run_victory_audit(
+        self,
+        required_artifacts: Optional[List[str]] = None,
+        acceptance_criteria: Optional[Dict[str, Any]] = None,
+        verifier: Optional[Tier4VictoryAuditVerifier] = None,
+    ) -> VictoryAuditResult:
+        """
+        Conducts Tier 4 Victory Audit on the mission.
+        Evaluates whole-mission acceptance criteria, artifact presence, and regression status.
+        Transitions AUDITING -> COMPLETED if audit passes,
+        or AUDITING -> FAILED if audit fails.
+        """
+        if self._mission.state not in (MissionState.AUDITING, MissionState.EXECUTING, MissionState.INTEGRATING):
+            raise InvalidStateTransitionError(
+                f"Cannot run victory audit in state {self._mission.state.value}"
+            )
+
+        if self._mission.state != MissionState.AUDITING:
+            old_st = self._mission.state
+            self._mission.transition_to(MissionState.AUDITING)
+            self._emit(
+                EventType.MISSION_STATE_CHANGED,
+                payload={"old_state": old_st.value, "new_state": MissionState.AUDITING.value}
+            )
+
+        req_arts = required_artifacts if required_artifacts is not None else self._required_artifacts
+        crit = acceptance_criteria if acceptance_criteria is not None else self._acceptance_criteria
+
+        if self._verification_engine is not None:
+            audit_result = self._verification_engine.run_victory_audit(
+                mission=self._mission,
+                tasks=self._graph.all_tasks(),
+                required_artifacts=req_arts,
+                acceptance_criteria=crit,
+            )
+        else:
+            audit_verifier = verifier or self._tier4_verifier or Tier4VictoryAuditVerifier()
+            audit_result = audit_verifier.audit_mission(
+                mission=self._mission,
+                tasks=self._graph.all_tasks(),
+                required_artifacts=req_arts,
+                acceptance_criteria=crit,
+            )
+
+        if audit_result.passed:
+            old_state = self._mission.state
+            self._mission.transition_to(MissionState.COMPLETED)
+            self._emit(
+                EventType.MISSION_STATE_CHANGED,
+                payload={
+                    "old_state": old_state.value,
+                    "new_state": self._mission.state.value,
+                    "verdict": "VICTORY CONFIRMED",
+                    "summary": audit_result.summary,
+                }
+            )
+        else:
+            old_state = self._mission.state
+            self._mission.transition_to(MissionState.FAILED)
+            self._emit(
+                EventType.MISSION_STATE_CHANGED,
+                payload={
+                    "old_state": old_state.value,
+                    "new_state": self._mission.state.value,
+                    "reason": audit_result.summary,
+                    "unresolved_failures": audit_result.unresolved_failures,
+                }
+            )
+
+        return audit_result
+
     # -------------------------------------------------------------------------
     # Task Management
     # -------------------------------------------------------------------------
 
     def add_task(
         self,
-        task_id: str,
-        title: str,
+        task_or_id: Optional[Union[Task, str]] = None,
+        title: str = "",
         description: str = "",
         domain: str = "general",
         priority: float = 0.0,
@@ -332,49 +662,61 @@ class MissionEngine:
         write_set: Optional[Iterable[str]] = None,
         workspace_mode: str = "branch",
         metadata: Optional[Dict[str, Any]] = None,
+        task_id: Optional[str] = None,
     ) -> Task:
         """
         Adds a new task to the mission graph.
+        Accepts either a Task instance directly or individual fields.
         If the task has zero dependencies, it immediately becomes READY and is enqueued.
         """
-        task = Task(
-            task_id=task_id,
-            mission_id=self._mission.mission_id,
-            title=title,
-            description=description,
-            domain=domain,
-            priority=priority,
-            status=TaskState.PENDING,
-            dependencies=set(dependencies or []),
-            read_set=set(read_set or []),
-            write_set=set(write_set or []),
-            workspace_mode=workspace_mode,
-            metadata=dict(metadata or {}),
-        )
+        if isinstance(task_or_id, Task):
+            task = task_or_id
+        else:
+            tid = task_id or (task_or_id if isinstance(task_or_id, str) else None)
+            if not tid:
+                raise ValueError("Must provide a task_id or Task instance")
+            t_title = title or ""
+            t_domain = domain
+            t_workspace_mode = workspace_mode
+            t_priority = priority
+            task = Task(
+                task_id=tid,
+                mission_id=self._mission.mission_id,
+                title=t_title,
+                description=description,
+                domain=t_domain,
+                priority=t_priority,
+                status=TaskState.PENDING,
+                dependencies=set(dependencies or []),
+                read_set=set(read_set or []),
+                write_set=set(write_set or []),
+                workspace_mode=t_workspace_mode,
+                metadata=dict(metadata or {}),
+            )
 
         self._graph.add_task(task)
         self._emit(
             EventType.TASK_CREATED,
-            task_id=task_id,
+            task_id=task.task_id,
             payload={
-                "title": title,
-                "domain": domain,
+                "title": task.title,
+                "domain": task.domain,
                 "dependencies": sorted(list(task.dependencies)),
                 "read_set": sorted(list(task.read_set)),
                 "write_set": sorted(list(task.write_set)),
-                "workspace_mode": workspace_mode,
+                "workspace_mode": task.workspace_mode,
             }
         )
 
         # Check initial readiness
-        if self._resolver.is_task_ready(task_id):
+        if self._resolver.is_task_ready(task.task_id):
             task.transition_to(TaskState.READY, reason="Zero initial dependencies")
-            unlock_val = self._resolver.calculate_unlock_value(task_id)
+            unlock_val = self._resolver.calculate_unlock_value(task.task_id)
             self._ready_queue.push(task, unlock_value=unlock_val)
             self._emit(
                 EventType.TASK_READY,
-                task_id=task_id,
-                payload={"priority": priority, "unlock_value": unlock_val}
+                task_id=task.task_id,
+                payload={"priority": task.priority, "unlock_value": unlock_val}
             )
 
         return task
@@ -441,7 +783,7 @@ class MissionEngine:
 
     def get_ready_tasks(self) -> List[Task]:
         """Returns snapshot of all currently ready tasks in priority order."""
-        return self._ready_queue.all_tasks()
+        return TaskList(self._ready_queue.all_tasks())
 
     def pop_next_ready_task(self) -> Optional[Task]:
         """Pops and returns the highest priority ready task from the queue."""
@@ -456,10 +798,25 @@ class MissionEngine:
             task.transition_to(TaskState.ASSIGNED)
             if worker_id:
                 task.assigned_worker_id = worker_id
+            prof = getattr(task, "execution_profile", None)
+            tier_val = getattr(prof, "tier", None)
+            tier_str = getattr(tier_val, "value", str(tier_val)) if tier_val else None
+            reason_str = getattr(prof, "reason", None) or getattr(prof, "routing_reason", None)
+            is_reuse = False
+            if worker_id:
+                worker = self._workers.get(worker_id)
+                if worker and worker.tasks_completed > 0:
+                    is_reuse = True
             self._emit(
                 EventType.TASK_ASSIGNED,
                 task_id=task_id,
-                payload={"worker_id": worker_id}
+                payload={
+                    "worker_id": worker_id,
+                    "domain": task.domain,
+                    "model_tier": tier_str,
+                    "routing_reason": reason_str,
+                    "is_reuse": is_reuse,
+                }
             )
         return task
 
@@ -512,8 +869,25 @@ class MissionEngine:
         self._emit(
             EventType.TASK_COMPLETED,
             task_id=task_id,
-            payload={"completed_at": task.completed_at, "result": task.result}
+            payload={"completed_at": task.completed_at, "result": task.result, "worker_id": task.assigned_worker_id}
         )
+
+        # Release worker if held
+        if task.assigned_worker_id:
+            self._workers.release(task.assigned_worker_id, success=True)
+            task.assigned_worker_id = None
+
+        # Auto-merge if task modified files in a branch
+        if task.write_set:
+            if self._integration_manager is not None:
+                self._integration_manager.enqueue(
+                    task_id=task.task_id,
+                    branch_name=getattr(task, "branch_name", f"branch-{task.task_id}"),
+                    write_set=task.write_set,
+                )
+                self._integration_manager.process_next()
+            if task.can_transition_to(TaskState.MERGED):
+                task.transition_to(TaskState.MERGED)
 
         # Resolve newly ready dependents
         newly_ready = self._resolver.resolve_dependents_on_completion(task_id)
@@ -532,14 +906,8 @@ class MissionEngine:
                 payload={"unlock_value": unlock_val, "priority": dep_task.priority}
             )
 
-        # Check if all tasks in mission have completed successfully
-        all_passed = all(t.status.is_terminal and t.status.is_success for t in self._graph.all_tasks())
-        if all_passed and self._graph.task_count() > 0:
-            self._mission.state = MissionState.COMPLETED
-            self._emit(
-                EventType.MISSION_STATE_CHANGED,
-                payload={"new_state": MissionState.COMPLETED.value}
-            )
+        # Check if all tasks in mission have completed successfully and trigger lifecycle
+        self._check_mission_completion()
 
         return task, newly_ready
 
@@ -587,14 +955,8 @@ class MissionEngine:
                     payload={"unlock_value": unlock_val, "priority": dep_task.priority}
                 )
 
-        # Check if all tasks in mission have completed successfully
-        all_passed = all(t.status.is_terminal and t.status.is_success for t in self._graph.all_tasks())
-        if all_passed and self._graph.task_count() > 0:
-            self._mission.state = MissionState.COMPLETED
-            self._emit(
-                EventType.MISSION_STATE_CHANGED,
-                payload={"new_state": MissionState.COMPLETED.value}
-            )
+        # Check if all tasks in mission have completed successfully and trigger lifecycle
+        self._check_mission_completion()
 
         if self._scheduler is not None:
             self._scheduler.evaluate()
@@ -605,22 +967,52 @@ class MissionEngine:
         self,
         task_id: str,
         error: str = "",
-        can_retry: bool = False
+        can_retry: Optional[bool] = None
     ) -> Task:
         """
-        Marks task as FAILED (or RETRYING if can_retry is True and retry limit not exceeded).
+        Marks task as FAILED (or RETRYING / READY if retry limit not exceeded).
         If permanently failed, transitions pending dependents to BLOCKED.
         """
         task = self._graph.get_task(task_id)
         task.error = error
 
-        if can_retry and task.retry_count < task.max_retries:
-            task.transition_to(TaskState.RETRYING, reason=error)
-            self._emit(
-                EventType.TASK_RETRYING,
-                task_id=task_id,
-                payload={"retry_count": task.retry_count, "error": error}
-            )
+        if can_retry is not None:
+            should_retry = can_retry and (task.retry_count < task.max_retries)
+        else:
+            err_lower = error.lower()
+            if "transient" in err_lower or "timeout" in err_lower:
+                should_retry = task.retry_count < task.max_retries
+            else:
+                should_retry = False
+
+        # Release worker if held
+        if task.assigned_worker_id:
+            self._workers.release(task.assigned_worker_id, success=False)
+            task.assigned_worker_id = None
+
+        # Release workspace if held
+        if self._workspace_registry.is_locked(task_id):
+            self._workspace_registry.release(task_id)
+
+        if should_retry:
+            if can_retry is True:
+                task.transition_to(TaskState.RETRYING, reason=error)
+                self._emit(
+                    EventType.TASK_RETRYING,
+                    task_id=task_id,
+                    payload={"retry_count": task.retry_count, "error": error}
+                )
+            else:
+                task.transition_to(TaskState.RETRYING, reason=error)
+                task.transition_to(TaskState.READY, reason="Automatic retry")
+                if not self._ready_queue.contains(task_id):
+                    unlock_val = self._resolver.calculate_unlock_value(task_id)
+                    self._ready_queue.push(task, unlock_value=unlock_val)
+                self._emit(
+                    EventType.TASK_RETRYING,
+                    task_id=task_id,
+                    payload={"retry_count": task.retry_count, "error": error}
+                )
         else:
             task.transition_to(TaskState.FAILED, reason=error)
             self._emit(
@@ -628,7 +1020,6 @@ class MissionEngine:
                 task_id=task_id,
                 payload={"error": error, "retries_exhausted": task.retry_count >= task.max_retries}
             )
-
 
             # Block dependent tasks
             newly_blocked = self._resolver.resolve_dependents_on_failure(task_id)

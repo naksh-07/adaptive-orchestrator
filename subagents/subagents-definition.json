@@ -3,6 +3,8 @@
     {
       "name": "explorer-researcher",
       "description": "Read-heavy codebase explorer for rapid reconnaissance, symbol lookup, error tracing, and documentation analysis without modifying workspace files.",
+      "domains": ["discovery", "research", "architecture", "general"],
+      "model_tier_preference": "FAST",
       "enable_write_tools": false,
       "enable_subagent_tools": false,
       "enable_mcp_tools": true,
@@ -11,6 +13,8 @@
     {
       "name": "implementer",
       "description": "Controlled writer specialist for making scoped, clean, surgical code edits to assigned files following the architectural plan.",
+      "domains": ["backend", "frontend", "infrastructure", "general"],
+      "model_tier_preference": "PRO",
       "enable_write_tools": true,
       "enable_subagent_tools": false,
       "enable_mcp_tools": true,
@@ -19,6 +23,8 @@
     {
       "name": "reviewer-verifier",
       "description": "Independent verification specialist for running automated tests, linters, type checks, and auditing diffs for regressions.",
+      "domains": ["test", "quality", "verification", "general"],
+      "model_tier_preference": "FAST",
       "enable_write_tools": true,
       "enable_subagent_tools": false,
       "enable_mcp_tools": true,
@@ -27,6 +33,8 @@
     {
       "name": "challenger-auditor",
       "description": "Adversarial auditor specialist for edge-case probing, fuzz testing, prompt requirement verification, and final Victory confirmation.",
+      "domains": ["security", "adversarial", "audit", "general"],
+      "model_tier_preference": "PRO",
       "enable_write_tools": true,
       "enable_subagent_tools": false,
       "enable_mcp_tools": true,

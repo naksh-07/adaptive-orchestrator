@@ -18,6 +18,7 @@ class WorkspaceMode(str, Enum):
     BRANCH = "branch"      # Ephemeral Git worktree for isolated parallel writes
     SHARE = "share"        # Shared directory for read-only parallel tasks
     INHERIT = "inherit"    # Inherit CWD for single-writer serialization or integration
+    IN_PLACE = "in_place"  # In-place execution mode
 
 
 class WorkspaceReleaseState(str, Enum):

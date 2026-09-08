@@ -89,9 +89,23 @@ class WorkerRegistry:
         ]
         return sorted(idle, key=lambda w: w.worker_id)
 
-    def get_busy_workers() -> List[Worker]:
+    def get_busy_workers(self) -> List[Worker]:
         """Returns all BUSY workers, sorted deterministically by worker_id."""
         return sorted([w for w in self._workers.values() if w.is_busy], key=lambda w: w.worker_id)
+
+    def get(self, worker_id: str, default: Optional[Worker] = None) -> Optional[Worker]:
+        """Convenience method returning worker or default if not found."""
+        return self._workers.get(worker_id, default)
+
+    def release(self, worker_id: str, success: bool = True) -> Optional[Worker]:
+        """Alias for release_worker, safe no-op if idle or not found."""
+        if worker_id not in self._workers:
+            return None
+        return self.release_worker(worker_id, success=success)
+
+    def list_all(self) -> List[Worker]:
+        """Returns list of all registered workers."""
+        return list(self._workers.values())
 
     def get_workers_by_domain(self, domain: str) -> List[Worker]:
         """Returns all workers in the specified domain, sorted deterministically."""

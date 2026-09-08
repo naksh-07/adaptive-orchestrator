@@ -115,6 +115,7 @@ class RepairPayload:
     affected_files: List[str] = field(default_factory=list)
     suggested_action: str = ""
     timestamp: float = field(default_factory=time.time)
+    worker_id: Optional[str] = None
 
     def __post_init__(self) -> None:
         self.error_summary = truncate_summary(self.error_summary)
@@ -130,6 +131,7 @@ class RepairPayload:
             "affected_files": list(self.affected_files),
             "suggested_action": self.suggested_action,
             "timestamp": self.timestamp,
+            "worker_id": self.worker_id,
         }
 
 
@@ -154,6 +156,8 @@ class RepairCoordinator:
 
         # Must be classified as REPAIRABLE
         classification = verification_result.failure_classification
+        if not classification:
+            classification = classify_failure(error_message=verification_result.summary)
         if not classification or not classification.is_repairable:
             return False
 
@@ -185,7 +189,7 @@ class RepairCoordinator:
         else:
             error_summary = verification_result.summary
 
-        classification = verification_result.failure_classification or FailureClassification.REPAIRABLE
+        classification = verification_result.failure_classification or classify_failure(error_message=verification_result.summary)
 
         return RepairPayload(
             task_id=task.task_id,
@@ -196,4 +200,5 @@ class RepairCoordinator:
             error_summary=error_summary,
             affected_files=sorted(list(task.write_set)),
             suggested_action=f"Fix defect identified by {verification_result.tier.value}. Verify changes locally.",
+            worker_id=getattr(task, "assigned_worker_id", None),
         )

@@ -11,6 +11,7 @@ from orchestrator.verification.models import (
     VerificationResult,
     VerificationStatus,
     VerificationTier,
+    VictoryAuditResult,
     truncate_summary,
 )
 from orchestrator.verification.policy import (
@@ -24,7 +25,9 @@ from orchestrator.verification.repair import (
 )
 from orchestrator.verification.verifier import (
     IndependentVerifier,
+    MockAdversarialVerifier,
     MockIndependentVerifier,
+    MockVictoryAuditVerifier,
     Tier1SelfTestVerifier,
     Tier3AdversarialVerifier,
     Tier4VictoryAuditVerifier,
@@ -35,6 +38,8 @@ __all__ = [
     "FailureClassification",
     "IndependentVerifier",
     "MockIndependentVerifier",
+    "MockAdversarialVerifier",
+    "MockVictoryAuditVerifier",
     "RepairCoordinator",
     "RepairPayload",
     "Tier1SelfTestVerifier",
@@ -46,6 +51,7 @@ __all__ = [
     "VerificationResult",
     "VerificationStatus",
     "VerificationTier",
+    "VictoryAuditResult",
     "Verifier",
     "classify_failure",
     "resolve_policy_for_task",

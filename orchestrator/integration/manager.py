@@ -27,6 +27,7 @@ class IntegrationManager:
     def __init__(
         self,
         merge_adapter: Optional[MergeAdapter] = None,
+        adapter: Optional[MergeAdapter] = None,
         workspace_registry: Optional[WorkspaceRegistry] = None,
         worktree_adapter: Optional[WorktreeAdapter] = None,
         integration_branch: str = "ao/integration",
@@ -34,8 +35,9 @@ class IntegrationManager:
         on_merge_completed: Optional[Callable[[str, MergeResult], None]] = None,
         on_merge_failed: Optional[Callable[[str, MergeResult], None]] = None,
     ) -> None:
+        eff_adapter = adapter or merge_adapter or MockMergeAdapter()
         self._queue = MergeQueue(
-            adapter=merge_adapter or MockMergeAdapter(),
+            adapter=eff_adapter,
             workspace_registry=workspace_registry,
             worktree_adapter=worktree_adapter,
             integration_branch=integration_branch,
@@ -52,10 +54,17 @@ class IntegrationManager:
     def merge_queue(self) -> MergeQueue:
         return self._queue
 
+    @property
+    def queue_length(self) -> int:
+        return len(self._queue._queue)
 
     @property
     def merge_adapter(self) -> MergeAdapter:
         return self._queue.adapter
+
+    def enqueue(self, request_or_task: Any, *args: Any, **kwargs: Any) -> MergeRequest:
+        """Enqueues a task or MergeRequest into the merge queue."""
+        return self._queue.enqueue(request_or_task, *args, **kwargs)
 
     def submit_for_merge(
         self,
@@ -78,4 +87,8 @@ class IntegrationManager:
 
     def process_next_merge(self) -> Optional[MergeResult]:
         """Processes next single pending merge."""
+        return self._queue.process_next()
+
+    def process_next(self) -> Optional[MergeResult]:
+        """Alias for process_next_merge."""
         return self._queue.process_next()

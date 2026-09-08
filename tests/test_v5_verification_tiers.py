@@ -134,16 +134,17 @@ class TestVerificationTiers(unittest.TestCase):
         self.assertEqual(t2_res.evidences[0].details["tier1_evidence_count"], 1)
 
     def test_tier3_and_tier4_stubs_are_deferred(self):
+        # In Phase 6, Tier 3 and Tier 4 are fully implemented
         task = Task(task_id="t_stub", title="Stub Task")
         t3 = Tier3AdversarialVerifier()
-        with self.assertRaises(NotImplementedError) as ctx3:
-            t3.verify(task)
-        self.assertIn("deferred", str(ctx3.exception).lower())
+        res3 = t3.verify(task)
+        self.assertIsNotNone(res3)
+        self.assertEqual(res3.tier, VerificationTier.TIER_3_ADVERSARIAL)
 
         t4 = Tier4VictoryAuditVerifier()
-        with self.assertRaises(NotImplementedError) as ctx4:
-            t4.verify(task)
-        self.assertIn("deferred", str(ctx4.exception).lower())
+        res4 = t4.verify(task)
+        self.assertIsNotNone(res4)
+        self.assertEqual(res4.tier, VerificationTier.TIER_4_VICTORY_AUDIT)
 
 
 if __name__ == "__main__":

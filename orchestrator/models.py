@@ -5,7 +5,7 @@ Adaptive Orchestrator v5 - Core Domain Models and State Machines.
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass, field
+from dataclasses import InitVar, dataclass, field
 from enum import Enum
 from typing import Any, Dict, Optional, Set
 
@@ -28,6 +28,7 @@ class TaskState(str, Enum):
     FAILED = "FAILED"
     RETRYING = "RETRYING"
     CANCELLED = "CANCELLED"
+    COMPLETED = "PASSED"
 
     @property
     def is_terminal(self) -> bool:
@@ -60,11 +61,15 @@ VALID_TASK_TRANSITIONS: Dict[TaskState, Set[TaskState]] = {
     TaskState.READY: {
         TaskState.ASSIGNED,
         TaskState.RUNNING,
+        TaskState.PASSED,
+        TaskState.FAILED,
+        TaskState.RETRYING,
         TaskState.BLOCKED,
         TaskState.CANCELLED,
     },
     TaskState.ASSIGNED: {
         TaskState.RUNNING,
+        TaskState.PASSED,
         TaskState.READY,
         TaskState.FAILED,
         TaskState.CANCELLED,
@@ -74,6 +79,7 @@ VALID_TASK_TRANSITIONS: Dict[TaskState, Set[TaskState]] = {
         TaskState.PASSED,
         TaskState.FAILED,
         TaskState.RETRYING,
+        TaskState.READY,
         TaskState.CANCELLED,
     },
     TaskState.VERIFYING: {
@@ -118,7 +124,8 @@ class Task:
     Canonical Task entity representing a discrete unit of work in the Mission DAG.
     Minimal foundation model strictly decoupled from physical worker and workspace mechanics.
     """
-    task_id: str
+    task_id: str = ""
+    id: InitVar[Optional[str]] = None
     mission_id: str = "default_mission"
     title: str = ""
 
@@ -142,6 +149,24 @@ class Task:
     retry_count: int = 0
     max_retries: int = 2
     metadata: Dict[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self, id: Optional[str] = None) -> None:
+        if id is not None and not self.task_id:
+            self.task_id = id
+        if not self.task_id:
+            self.task_id = f"task_{int(time.time() * 1000)}"
+
+    @property
+    def id(self) -> str:
+        return self.task_id
+
+    @property
+    def state(self) -> TaskState:
+        return self.status
+
+    @state.setter
+    def state(self, new_state: TaskState) -> None:
+        self.status = new_state
 
     def can_transition_to(self, target_state: TaskState) -> bool:
         """Returns True if transition from current status to target_state is permitted."""
@@ -218,6 +243,7 @@ VALID_MISSION_TRANSITIONS: Dict[MissionState, Set[MissionState]] = {
     MissionState.PLAN_APPROVED: {MissionState.EXECUTING, MissionState.CANCELLED},
     MissionState.EXECUTING: {
         MissionState.INTEGRATING,
+        MissionState.AUDITING,
         MissionState.PAUSED,
         MissionState.COMPLETED,
         MissionState.FAILED,
@@ -293,6 +319,7 @@ class EventType(str, Enum):
     TASK_STARTED = "TASK_STARTED"
     TASK_VERIFYING = "TASK_VERIFYING"
     TASK_COMPLETED = "TASK_COMPLETED"
+    TASK_PASSED = "TASK_COMPLETED"
     TASK_FAILED = "TASK_FAILED"
     TASK_RETRYING = "TASK_RETRYING"
     TASK_CANCELLED = "TASK_CANCELLED"
@@ -321,6 +348,14 @@ class EventType(str, Enum):
     REPAIR_REQUESTED = "REPAIR_REQUESTED"
     REPAIR_COMPLETED = "REPAIR_COMPLETED"
     REPAIR_FAILED = "REPAIR_FAILED"
+    CHECKPOINT_SAVED = "CHECKPOINT_SAVED"
+    MISSION_RECOVERED = "MISSION_RECOVERED"
+    TIER3_CHALLENGE_STARTED = "TIER3_CHALLENGE_STARTED"
+    TIER3_CHALLENGE_PASSED = "TIER3_CHALLENGE_PASSED"
+    TIER3_CHALLENGE_FAILED = "TIER3_CHALLENGE_FAILED"
+    TIER4_AUDIT_STARTED = "TIER4_AUDIT_STARTED"
+    TIER4_AUDIT_PASSED = "TIER4_AUDIT_PASSED"
+    TIER4_AUDIT_FAILED = "TIER4_AUDIT_FAILED"
 
 
 @dataclass

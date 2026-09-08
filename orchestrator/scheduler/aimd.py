@@ -162,6 +162,14 @@ class AIMDController:
 
         return self._capacity
 
+    def on_success(self, task_id: Optional[str] = None) -> int:
+        """Convenience method to register a successful completion and update capacity."""
+        return self.process_feedback(FeedbackSignal(signal_type=FeedbackSignalType.TASK_COMPLETED, task_id=task_id))
+
+    def on_failure(self, task_id: Optional[str] = None, error: str = "", is_capacity_error: bool = False) -> int:
+        """Convenience method to register a failure and update capacity."""
+        return self.process_feedback(FeedbackSignal(signal_type=FeedbackSignalType.TASK_FAILED, task_id=task_id, error=error, is_capacity_error=is_capacity_error))
+
     def _apply_additive_increase(self, reason: str = "") -> None:
         """
         Increases capacity additively by increase_step, clamped to max_capacity.

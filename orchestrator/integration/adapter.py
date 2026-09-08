@@ -62,7 +62,11 @@ class MockMergeAdapter(MergeAdapter):
     Can be configured to simulate clean merges or conflict scenarios on specific branches.
     """
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        should_succeed: bool = True,
+        conflict_error: Optional[str] = None,
+    ) -> None:
         self.integration_branch: str = "ao/integration"
         self.merged_branches: List[str] = []
         self.conflicting_branches: Set[str] = set()
@@ -70,6 +74,8 @@ class MockMergeAdapter(MergeAdapter):
         self.aborted_count: int = 0
         self.cleaned_branches: List[str] = []
         self.custom_diffs: Dict[str, str] = {}
+        self.should_succeed: bool = should_succeed
+        self.conflict_error: Optional[str] = conflict_error
 
     def set_conflict(self, branch_name: str, conflict_files: Optional[List[str]] = None) -> None:
         """Configures a branch to produce a merge conflict upon integration."""
@@ -101,6 +107,17 @@ class MockMergeAdapter(MergeAdapter):
         commit_message: Optional[str] = None
     ) -> MergeResult:
         start_time = time.time()
+        if not self.should_succeed:
+            return MergeResult(
+                success=False,
+                task_id=task_id,
+                branch_name=source_branch,
+                commit_id=None,
+                conflict_files=["src/conflict.py"],
+                error=self.conflict_error or "Merge conflict in src/conflict.py",
+                duration=time.time() - start_time,
+            )
+
         # Check if simulated conflict
         if source_branch in self.conflicting_branches:
             conflicts = self.conflict_file_map.get(source_branch, ["src/conflict.py"])

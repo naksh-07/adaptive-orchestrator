@@ -6,7 +6,7 @@ Defines data structures for merge requests, sequential integration queue, and me
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass, field
+from dataclasses import InitVar, dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Optional, Set
 
@@ -27,9 +27,11 @@ class MergeRequest:
     Structured request for sequential automated integration of a worktree branch.
     """
     task_id: str
-    worker_id: str
-    branch_name: str
-    workspace_path: str
+    worker_id: str = "w_default"
+    branch_name: str = ""
+    workspace_path: str = ""
+    source_branch: InitVar[Optional[str]] = None
+    target_branch: Optional[str] = None
     write_set: Set[str] = field(default_factory=set)
     enqueued_at: float = field(default_factory=time.time)
     priority: float = 0.0
@@ -38,6 +40,10 @@ class MergeRequest:
     error: Optional[str] = None
     commit_id: Optional[str] = None
     task: Optional[Any] = None
+
+    def __post_init__(self, source_branch: Optional[str] = None) -> None:
+        if source_branch is not None and not self.branch_name:
+            self.branch_name = source_branch
 
     def to_dict(self) -> Dict[str, Any]:
         return {
