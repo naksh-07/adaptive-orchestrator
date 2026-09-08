@@ -1,8 +1,8 @@
 {
   "name": "adaptive-orchestrator",
-  "version": "4.0.0",
+  "version": "5.0.0",
   "displayName": "Adaptive Orchestrator",
-  "description": "Production-grade Antigravity-native global orchestration skill (v4 Foundation). Lightweight, resource-aware alternative to Teamwork Preview with adaptive workforce sizing, limited hierarchical delegation, hard resource limits (max 4 concurrent, max 10 total launches), progressive coordination depth, dead-end memory, and Victory-style independent verification.",
+  "description": "Production-grade Antigravity-native global orchestration skill (v5 Architecture). High-throughput multi-agent execution with dynamic task DAG, reusable domain workers, AIMD adaptive concurrency, controlled worktree integration, durable persistence, and 4-tier Victory verification.",
   "author": "Antigravity Team",
   "category": "Orchestration & Workflow",
   "main": "SKILL.md",

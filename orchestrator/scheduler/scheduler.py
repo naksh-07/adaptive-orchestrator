@@ -489,6 +489,8 @@ class EventDrivenScheduler:
             if self._engine and self._engine.graph.has_task(task_id)
             else None
         )
+        if task is not None and task.status in (TaskState.PASSED, TaskState.MERGED):
+            return
         worker = self._worker_registry.get_worker_for_task(task_id)
         worker_id = worker.worker_id if worker else (task.assigned_worker_id if task else "unknown")
 

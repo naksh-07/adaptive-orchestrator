@@ -81,7 +81,7 @@ $$\text{Capacity}_{t+1} = \begin{cases}
 
 ### Parameter Configuration
 - **Initial Capacity ($\text{Capacity}_0$)**: 2 workers.
-- **Maximum Capacity ($\text{MaxCapacity}$)**: 4 concurrent workers (hard mission limit).
+- **Maximum Capacity ($\text{MaxCapacity}$)**: Configurable upper capacity bound (e.g. 6–8 workers, governed by AIMD policy).
 - **Minimum Capacity ($\text{MinCapacity}$)**: 1 worker.
 - **Additive Increase Step ($\alpha$)**: +1 worker.
 - **Healthy Threshold ($\theta$)**: 2 consecutive successful task completions.
@@ -297,51 +297,49 @@ Adaptive Orchestrator v5 is 100% compliant with Antigravity Customization Standa
 
 ---
 
-## 15. Hard Resource Limits & Concurrency Accounting
+## 15. Resource Capacity Policy & Worker Accounting
 
-To ensure token and credit safety across deep task trees, limits apply globally across the **entire hierarchy** (Root + Coordinators + Leaf Workers):
+In v5, physical concurrency is controlled adaptively by the AIMD scheduler rather than rigid artificial mission caps. Logical DAG width scales independently to represent full project parallelism.
 
-| Metric | Normal Default | Hard Upper Bound |
+| Metric | Normal Default | Policy Control |
 | :--- | :---: | :---: |
-| **Concurrent Active Workers** | 2 | **4** (Global tree ceiling) |
-| **Total Launches per Mission** | 4–6 | **10** (Global shared budget) |
-| **Max Retries per Task** | 1 | **3** attempts |
-| **Hierarchy Depth** | L1 | **L2** (Max 1 coordinator level) |
+| **Physical Concurrency ($C$)** | 2–4 | **Adaptive AIMD Window** (configurable bounds, e.g. 2–8) |
+| **Logical DAG Width** | Uncapped | **Independent Graph Scale** (no artificial launch budget) |
+| **Worker Reuse Strategy** | Domain Affinity | **Persistent warm workers** (new workers created only on demand) |
+| **Max Retries per Task** | 1–2 | **3 attempts** (bounded local repair) |
+| **Hierarchy Depth** | L1 | **L2** (Max 1 coordinator level when authorized) |
 
 ---
 
 ## 16. Configuration Reference
 
 ```python
-from orchestrator.config import OrchestratorConfig
 from orchestrator.scheduler.aimd import AIMDConfig
 from orchestrator.persistence.checkpoint import CheckpointPolicy
 from orchestrator.verification.policy import VerificationPolicy
 
-config = OrchestratorConfig(
-    max_concurrency=4,
-    max_total_launches=10,
-    aimd=AIMDConfig(
-        initial_capacity=2,
-        max_capacity=4,
-        min_capacity=1,
-        increase_step=1,
-        decrease_factor=0.5,
-        healthy_threshold=2,
-    ),
-    checkpoint=CheckpointPolicy(
-        enabled=True,
-        checkpoint_file="mission_dag.json",
-        min_interval_seconds=0.5,
-    ),
-    verification=VerificationPolicy(
-        tier1_enabled=True,
-        tier2_enabled=True,
-        tier3_enabled=False,
-        tier4_enabled=True,
-        auto_repair=True,
-        max_repair_attempts=2,
-    )
+aimd_config = AIMDConfig(
+    initial_capacity=2,
+    min_capacity=1,
+    max_capacity=8,
+    increase_step=1,
+    decrease_factor=0.5,
+    healthy_threshold=2,
+    cooldown_steps=1,
+)
+
+checkpoint_policy = CheckpointPolicy(
+    enabled=True,
+    checkpoint_file="mission_dag.json",
+    min_interval_seconds=0.5,
+)
+
+verification_policy = VerificationPolicy(
+    tier1_enabled=True,
+    tier2_enabled=True,
+    tier3_enabled=True,
+    auto_repair=True,
+    max_repair_attempts=2,
 )
 ```
 

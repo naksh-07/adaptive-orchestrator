@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """
 Adaptive Orchestrator â€” Self-Check & Diagnostics Engine
 Verifies repository integrity, manifest schemas, subagent definitions,
@@ -97,7 +97,7 @@ def main():
         sys.exit(0 if results["healthy"] else 1)
 
     print("=" * 65)
-    print("       Adaptive Orchestrator v4.0.0 â€” Doctor Self-Check")
+    print("       Adaptive Orchestrator v5.0.0 — Doctor Self-Check")
     print("=" * 65)
     py_status = "PASS" if results["python_compatible"] else "FAIL"
     print(f"  Python Environment:     {py_status:<10} ({results['python_version']} on {sys.platform})")
@@ -112,7 +112,7 @@ def main():
     print(f"  Subagent Definitions:   {subagent_status:<10} (4 leaf subagents registered)")
 
     template_status = "PASS" if results["templates_valid"] else "FAIL"
-    print(f"  Multi-Wave Templates:   {template_status:<10} (6 markdown templates verified)")
+    print(f"  Coordination Templates: {template_status:<10} (6 markdown templates verified)")
     print("-" * 65)
 
     if results["errors"] or results["files_missing"]:
@@ -123,7 +123,7 @@ def main():
             print(f"    - Error: {err}")
         print("-" * 65)
 
-    overall = "HEALTHY (v4.0.0 Ready for Deployment)" if results["healthy"] else "DEGRADED (Fix reported issues)"
+    overall = "HEALTHY (v5.0.0 Ready for Deployment)" if results["healthy"] else "DEGRADED (Fix reported issues)"
     print(f"  Overall System Health:  {overall}")
     print("=" * 65)
 

@@ -86,6 +86,7 @@ VALID_TASK_TRANSITIONS: Dict[TaskState, Set[TaskState]] = {
         TaskState.PASSED,
         TaskState.FAILED,
         TaskState.RETRYING,
+        TaskState.READY,
         TaskState.CANCELLED,
     },
     TaskState.RETRYING: {

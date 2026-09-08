@@ -59,8 +59,10 @@ def validate() -> int:
             "Phase 1: Pre-Planning Dispatch Gate",
             "Phase 2: Post-Approval Execution Dispatch Gate",
             "READ PARALLEL",
-            "SPAWNED_TOTAL",
-            "ACTIVE_TOTAL"
+            "Dynamic DAG",
+            "Reusable Domain Workers",
+            "AIMD",
+            "4-Tier Verification Pyramid"
         ]
         for phrase in required_phrases:
             if phrase not in skill_content:

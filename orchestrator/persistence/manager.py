@@ -252,10 +252,10 @@ class PersistenceManager:
             stale_worker = t_data.get("assigned_worker_id")
             stale_workspace = t_data.get("workspace_path")
 
-            if prior_state in (TaskState.RUNNING, TaskState.VERIFYING, TaskState.ASSIGNED):
-                retry_count = int(t_data.get("retry_count", 0))
-                max_retries = int(t_data.get("max_retries", 2))
+            retry_count = int(t_data.get("retry_count", 0))
+            max_retries = int(t_data.get("max_retries", 2))
 
+            if prior_state in (TaskState.RUNNING, TaskState.VERIFYING, TaskState.ASSIGNED):
                 if retry_count < max_retries:
                     recovered_state = TaskState.READY
                     retry_count += 1

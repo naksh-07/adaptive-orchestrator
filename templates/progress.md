@@ -1,41 +1,47 @@
-# Multi-Wave Progress Tracker
+# Adaptive Orchestrator v5 — Pipeline Progress Tracker
 
-## Wave Execution Timeline
+## Dynamic Execution Pipeline Stages
 
-### Wave 1: Reconnaissance & Discovery
-- **Objective**: Explore relevant files, trace execution paths, verify APIs.
-- **Workers**: `[Explorer A, Explorer B]`
+### Stage 1: Discovery & Graph Synthesis
+- **Objective**: Repository reconnaissance, requirement analysis, and dependency DAG construction.
+- **Workers**: `[Explorer / Researcher or Parent]`
 - **Status**: [PENDING | IN_PROGRESS | COMPLETED]
 - **Deliverables**:
-  - [x] Initial discovery report
-  - [x] Root cause identified
+  - [x] Initial discovery findings and architectural contracts
+  - [x] Topological task DAG generated with explicit dependencies and write sets
 
-### Wave 2: Synthesis & Architectural Plan
-- **Objective**: Reconcile findings, build unified plan, terminate Wave 1 workers.
-- **Workers**: `[Parent Orchestrator]`
+### Stage 2: Continuous Pipeline Execution
+- **Objective**: Continuous dispatch of READY tasks to reusable domain workers governed by AIMD concurrency.
+- **Workers**: `[Domain Specialists: Backend, Frontend, Infra, General]`
 - **Status**: [PENDING | IN_PROGRESS | COMPLETED]
 - **Deliverables**:
-  - [x] Implementation plan finalized
-  - [x] Disjoint write boundaries allocated
+  - [x] Scoped implementation within isolated workspaces
+  - [x] Context-preserving worker reuse across tasks in same domain
 
-### Wave 3: Controlled Implementation
-- **Objective**: Execute scoped code edits using Single Writer policy.
-- **Workers**: `[Implementer]`
+### Stage 3: Incremental Verification & Repair
+- **Objective**: Multi-tier incremental validation with in-context local repair loops.
+- **Workers**: `[Assigned Worker, Independent Reviewer, Adversarial Challenger]`
 - **Status**: [PENDING | IN_PROGRESS | COMPLETED]
 - **Deliverables**:
-  - [x] Code modifications applied
-  - [x] Local unit tests / linters passing
+  - [x] Tier 1 self-validation and local test suites
+  - [x] Tier 2 independent build and diff audits
+  - [x] Tier 3 adversarial write-set contract checks (when required)
+  - [x] In-context repair resolved without abandoning warm workspace
 
-### Wave 4: Independent Verification & Audit
-- **Objective**: Independent review, automated regression tests, edge-case probing.
-- **Workers**: `[Reviewer / Verifier, Challenger / Auditor]`
+### Stage 4: Worktree Integration & Sequential Merge
+- **Objective**: Serialized integration of branch worktrees into the main integration target.
+- **Workers**: `[Integration Manager & Merge Queue]`
 - **Status**: [PENDING | IN_PROGRESS | COMPLETED]
 - **Deliverables**:
-  - [x] Test suite passing
-  - [x] Victory audit confirmed
+  - [x] Atomic branch merge with verified commit
+  - [x] Downstream dependent tasks unblocked in ReadyQueue
 
-### Wave 5: Final Delivery & Workforce Collapse
-- **Objective**: Terminate all workers (Active = 0), generate final delivery report.
-- **Workers**: `[Parent Orchestrator]`
+### Stage 5: Tier 4 Victory Audit & Final Acceptance
+- **Objective**: Authoritative mission-wide acceptance audit and delivery.
+- **Workers**: `[Tier 4 Victory Auditor & Parent Lead]`
 - **Status**: [PENDING | IN_PROGRESS | COMPLETED]
-- **Final Active Count**: 0
+- **Deliverables**:
+  - [x] All DAG tasks in valid terminal success state (PASSED / MERGED)
+  - [x] Required artifacts confirmed present on filesystem
+  - [x] Acceptance criteria verified with concrete evidence
+  - [x] Final orchestration report compiled

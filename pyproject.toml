@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "adaptive-orchestrator"
-version = "4.0.0"
+version = "5.0.0"
 description = "Production-grade Antigravity-native global orchestration skill and multi-agent coordination system"
 readme = "README.md"
 authors = [

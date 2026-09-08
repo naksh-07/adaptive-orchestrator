@@ -1,24 +1,26 @@
-# Adaptive Orchestrator (v4 Foundation)
+# Adaptive Orchestrator (v5 Architecture)
 
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Antigravity Native](https://img.shields.io/badge/Antigravity-Native%20Skill-8A2BE2.svg)](https://github.com/naksh-07/adaptive-orchestrator)
-[![Version](https://img.shields.io/badge/version-4.0.0-green.svg)](https://github.com/naksh-07/adaptive-orchestrator/releases)
+[![Version](https://img.shields.io/badge/version-5.0.0-green.svg)](https://github.com/naksh-07/adaptive-orchestrator/releases)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![CI Validation](https://img.shields.io/badge/CI-Passing-success.svg)](https://github.com/naksh-07/adaptive-orchestrator/actions)
 
-> **Production-Grade Antigravity-Native Global Multi-Agent Orchestration Engine.**
-> Deliver Teamwork Preview-grade rigor with intelligent workforce sizing, shallow hierarchical delegation, hard resource limits (max 4 concurrent, max 10 total launches), progressive coordination depth, dead-end memory, and Victory-style independent verification.
+> **Production-Grade Antigravity-Native High-Throughput Multi-Agent Orchestration Engine.**
+> High-throughput orchestration with dynamic task DAGs, reusable domain workers, adaptive AIMD concurrency, isolated worktree integration, durable persistence, and 4-tier Victory verification.
 
 ---
 
 ## Table of Contents
 - [Executive Overview](#executive-overview)
-- [Why Adaptive Orchestrator?](#why-adaptive-orchestrator)
+- [Why Adaptive Orchestrator v5?](#why-adaptive-orchestrator-v5)
 - [Core Architecture & Lifecycle](#core-architecture--lifecycle)
-  - [The 5-Wave Execution Pipeline](#the-5-wave-execution-pipeline)
+  - [Continuous Dynamic DAG Pipeline](#continuous-dynamic-dag-pipeline)
   - [Dual Mandatory Delegation Gates](#dual-mandatory-delegation-gates)
-  - [Hard Resource Limits & Tree-Aware Ledger](#hard-resource-limits--tree-aware-ledger)
-- [Specialist Subagent Taxonomy](#specialist-subagent-taxonomy)
+  - [V5 Resource Model & AIMD Concurrency](#v5-resource-model--aimd-concurrency)
+  - [4-Tier Verification Pyramid & Local Repair](#4-tier-verification-pyramid--local-repair)
+  - [Controlled Integration & Sequential Merge Queue](#controlled-integration--sequential-merge-queue)
+- [Specialist Subagent Taxonomy & Worker Pool](#specialist-subagent-taxonomy--worker-pool)
 - [Coordination Depth & Templates](#coordination-depth--templates)
 - [Comparison Matrix](#comparison-matrix)
 - [Quick Start & Installation](#quick-start--installation)
@@ -31,14 +33,13 @@
 
 ## Executive Overview
 
-**Adaptive Orchestrator** is an orchestration framework natively tailored for **Google Antigravity** and Gemini agentic environments. It addresses the two most critical failure modes in autonomous multi-agent systems:
-1. **Premature Solo Wanderings**: Agents burning tokens exploring massive codebases without delegating.
-2. **Runaway Swarm Chaos**: Uncoordinated subagents flooding the workspace, colliding on shared files, and rapidly consuming token quotas without verification.
+**Adaptive Orchestrator v5** is a production-grade multi-agent orchestration engine natively designed for **Google Antigravity** and Gemini agentic ecosystems. It eliminates the bottlenecks of stop-and-go wave barriers, context thrashing, and arbitrary mission launch limits while preserving strict safety, isolation, and verification rigor.
 
-### The Mandate
+### The v5 Mandate
 ```text
-"Deliver Teamwork Preview-grade rigor with intelligent workforce sizing,
-shallow hierarchical delegation, hard resource limits, and aggressive workforce collapse."
+"Maximize useful parallel progress, verification quality, and correctness per token
+through dynamic task DAGs, reusable domain workers, adaptive AIMD concurrency,
+isolated worktree writes, and 4-tier verification rigor."
 ```
 
 ```mermaid
@@ -47,47 +48,76 @@ graph TD
     B --> C{Threshold Exceeded?}
     C -->|Yes| D[Dispatch Parallel Explorers]
     C -->|No| E[Solo Reconnaissance]
-    D --> F[Wave 2: Synthesis & Plan]
+    D --> F[Plan & Dynamic DAG Generation]
     E --> F
-    F --> G[Collapse Explorers: Active = 0]
-    G --> H[Phase 2: Execution Dispatch Gate]
-    H --> I[Wave 3: Controlled Implementation]
-    I --> J[Wave 4: Independent Verification]
-    J --> K[Wave 5: Collapse All & Deliver Victory]
+    F --> G[Phase 2: Execution Dispatch Gate]
+    G --> H[Priority ReadyQueue]
+    H --> I[AIMD Adaptive Concurrency Controller]
+    I --> J[Reusable Domain Worker Pool]
+    J --> K[Isolated Worktree Execution]
+    K --> L[4-Tier Verification Pyramid]
+    L -->|Pass| M[Sequential Merge Queue]
+    L -->|Repairable| N[In-Context Local Repair]
+    N --> K
+    M --> O[Unlock Downstream DAG Dependents]
+    O --> H
+    O --> P{All Tasks Merged?}
+    P -->|Yes| Q[Tier 4 Mission Victory Audit]
+    Q --> R[Mission Final Acceptance]
 ```
 
 ---
 
-## Why Adaptive Orchestrator?
+## Why Adaptive Orchestrator v5?
 
-- **Dual Mandatory Gates**: Explicit, non-bypassable pre-planning and post-approval gates eliminate guesswork and prevent uncoordinated file writes.
-- **Credit-Aware Budget Bounds**: Enforces **max 4 concurrent subagents** and **max 10 total launches** across the entire hierarchical tree (Root + Children + Grandchildren).
-- **Fundamental Law (Read Parallel — Write Controlled)**: Parallelize read operations across specialists while strictly enforcing Single Writer boundaries (or isolated `Workspace='branch'` worktrees) during code modifications.
-- **Dead-End Memory Log (`dead-ends.md`)**: An append-only record of falsified hypotheses to ensure subagents never repeat failed approaches across waves.
-- **Victory-Style Independent Verification**: Independent Reviewer and adversarial Challenger subagents audit diffs and probe boundary conditions before marking tasks complete.
-- **Zero Workspace Pollution**: All coordination artifacts are saved in the conversation's artifact directory (`<appDataDir>/brain/<conversation-id>/`), leaving the user's workspace pristine.
+- **Continuous Dynamic DAG Execution**: Replaces rigid stop-and-go wave barriers with a topologically sorted task DAG that dynamically pushes ready work into a priority queue.
+- **Reusable Domain Workers**: Workers remain in the worker pool (`IDLE` state) with warm context, avoiding context duplication and repeatedly reloading repository files.
+- **Adaptive AIMD Concurrency**: Physical subagent concurrency dynamically expands upon success ($C \leftarrow C + 1$) and throttles upon failure or rate pressure ($C \leftarrow \max(1, \lfloor C \times 0.5 \rfloor)$).
+- **Decoupled Logical Task Width**: Missions can execute arbitrarily large task graphs without hitting artificial mission launch limits.
+- **Fundamental Law (Read Parallel — Write Controlled)**: Read operations scale concurrently across specialists, while write operations are isolated in git worktrees and merged sequentially through a conflict-checked queue.
+- **4-Tier Verification Pyramid**:
+  - **Tier 1**: Worker self-test.
+  - **Tier 2**: Independent verification and lint/diff audit.
+  - **Tier 3**: Adversarial challenge (write-set contract checking and stress testing).
+  - **Tier 4**: Mission-level Victory Audit before final acceptance.
+- **In-Context Local Repair**: Failures are repaired in the same worker and warm workspace without abandoning partial work.
+- **Atomic Persistence & Crash Recovery**: State snapshots are written atomically with `fsync`, allowing interrupted tasks to recover cleanly without deadlock.
+- **Zero Workspace Pollution**: All coordination artifacts reside in the conversation brain directory (`<appDataDir>/brain/<conversation-id>/`).
 
 ---
 
 ## Core Architecture & Lifecycle
 
-### The 5-Wave Execution Pipeline
+### Continuous Dynamic DAG Pipeline
 
 ```text
-Wave 1: Reconnaissance & Discovery
-   │  └── Read-only Explorer/Researcher specialists gather hard facts with line numbers.
-   ▼
-Wave 2: Synthesis & Architectural Plan
-   │  └── Parent reconciles findings into implementation_plan.md; collapses Wave 1 workers.
-   ▼
-Wave 3: Controlled Implementation
-   │  └── Scoped Implementers modify assigned files under Single Writer policy.
-   ▼
-Wave 4: Independent Verification & Audit
-   │  └── Reviewer runs tests/linters; Challenger performs adversarial edge-case probing.
-   ▼
-Wave 5: Final Delivery & Workforce Collapse
-      └── All subagents terminated (Active Total = 0); Victory confirmed.
+MISSION
+  ↓
+PLANNING & DYNAMIC DAG SYNTHESIS
+  ↓
+PRIORITY READY QUEUE
+  ↓
+ADAPTIVE DISPATCH (AIMD Capacity Controller)
+  ↓
+REUSABLE DOMAIN WORKERS (Warm Context)
+  ↓
+ISOLATED EXECUTION (In-Place or Branch Worktree)
+  ↓
+TIER 1: LOCAL SELF-TEST
+  ↓
+TIER 2: INDEPENDENT VERIFICATION
+  ↓
+TIER 3: ADVERSARIAL CHALLENGE (Write-set exclusivity)
+  ↓
+IN-CONTEXT LOCAL REPAIR (When repairable; same worker/workspace)
+  ↓
+SEQUENTIAL MERGE QUEUE (Controlled Integration)
+  ↓
+DEPENDENCY UNLOCK (Downstream Tasks to ReadyQueue)
+  ↓
+TIER 4: MISSION VICTORY AUDIT (Whole-Mission Acceptance)
+  ↓
+FINAL ACCEPTANCE & WORKFORCE CONCLUSION
 ```
 
 ---
@@ -95,144 +125,112 @@ Wave 5: Final Delivery & Workforce Collapse
 ### Dual Mandatory Delegation Gates
 
 #### 1. Phase 1: Pre-Planning Dispatch Gate
-Executes immediately upon invocation, **BEFORE** substantive repository exploration.
-- **Trigger A (3+ Domains)**: 2+ concurrent specialists.
-- **Trigger B (2+ Independent Lanes)**: 2+ concurrent specialists.
-- **Trigger C (5+ Files / 2+ Modules)**: $\ge 1$ specialist.
-- **Trigger D (Research + Implementation)**: $\ge 1$ Explorer dispatched before planning.
+Executes immediately upon orchestrator activation, **BEFORE** substantive repository exploration.
+- **Trigger A (3+ Distinct Domains)**: Mandatory 2+ concurrent specialists.
+- **Trigger B (2+ Independent Reconnaissance Lanes)**: Mandatory 2+ concurrent specialists.
 
 ```text
-[Adaptive Orchestrator v4 Foundation — Phase 1 Pre-Planning]
-Mode:             [SOLO | FOCUSED | SMALL | PARALLEL | STAGED | HIERARCHICAL | MAX]
-Dispatch Gate:    [REQUIRED | NOT REQUIRED]
-Initial Workforce:[0 | 1 | 2 | 3 | 4]
-Reason:           [e.g., 3 independent domains, 14-file scope across 3 modules]
-Budget:           [X]/10 launches reserved
+[PRE-PLANNING DELEGATION GATE]
+COMPLEXITY_TRIGGER: [DOMAINS >= 3 | INDEPENDENT_LANES >= 2 | BELOW_THRESHOLD]
+DELEGATION_MANDATORY: [YES | NO]
+PLANNED_RECON_WORKFORCE: [N Explorer/Researcher specialists]
+FIRST_ACTION: [invoke_subagent(...) | Solo Reconnaissance]
 ```
 
 #### 2. Phase 2: Post-Approval Execution Dispatch Gate
-Executes **AFTER** plan approval (or Auto-Proceed), **BEFORE** the first code modification.
-- Re-evaluates concrete implementation workstreams.
-- If $\ge 2$ independent streams exist, SOLO implementation is **strictly forbidden**.
+Executes **AFTER** plan approval (or Auto-Proceed), **BEFORE** modifying any source code.
+- If $\ge 2$ independent implementation streams exist, SOLO execution is strictly disallowed.
+- Dispatches tasks to the reusable domain worker pool.
 
 ```text
-[Adaptive Orchestrator v4 Foundation — Phase 2 Execution Dispatch]
-IMPLEMENTATION_WORKSTREAMS: [List of streams identified in plan]
-INDEPENDENT_STREAMS:        [Count of genuinely independent lanes]
-COUPLING:                   [TIGHTLY_COUPLED | DECOUPLED | MODULAR]
-FILE_OWNERSHIP:             [Disjoint file/module assignments per worker]
-RISK:                       [LOW | MEDIUM | HIGH | CRITICAL]
-MODE:                       [SOLO | FOCUSED | PARALLEL | STAGED | HIERARCHICAL]
-INITIAL_WORKFORCE:          [N implementation workers / coordinators]
-HIERARCHY_REQUIRED:         [YES | NO]
-BUDGET_AVAILABLE:           [X]/10 launches remaining
+[EXECUTION DISPATCH GATE]
+INDEPENDENT_STREAMS: [Count of independent execution streams]
+DELEGATION_MANDATORY: [YES | NO]
+TARGET_DOMAINS: [List of domains: backend, frontend, infra, test, etc.]
+DISPATCH_STRATEGY: [Pooled Worker Reuse | Spawn Domain Worker]
+FIRST_ACTION: [Dispatch to Reusable Worker Pool | Single Controlled Writer]
 ```
 
 ---
 
-### Hard Resource Limits & Tree-Aware Ledger
+### V5 Resource Model & AIMD Concurrency
 
-Every mission operates under hard ceilings shared across the entire hierarchy:
-
-| Metric | Normal Default | Mission Hard Limit | Invariant |
+| Metric | Model | Policy Control | Invariant |
 |:---|:---:|:---:|:---|
-| **Concurrent Subagents** | **2** initial | **4 Max** | $	ext{Active Direct Leaves} + \sum 	ext{Coordinator Quotas} \le 4$ |
-| **Total Launches** | **4–6** total | **10 Max** | $	ext{Root Launches} + \sum 	ext{Child Launches} + 	ext{Retries} \le 10$ |
-
-#### Tree-Aware Ledger Schema:
-```text
-SPAWNED_TOTAL:           [all subagent launches across entire tree so far]
-ACTIVE_TOTAL:            [currently active subagents across whole tree (<= 4)]
-REMAINING_BUDGET:        [10 - SPAWNED_TOTAL]
-COORDINATOR_ALLOCATIONS: [local child budgets reserved for active coordinators]
-CURRENT_DEPTH:           [max nesting depth in active tree (<= 2 normal)]
-```
+| **Physical Concurrency** | Dynamic AIMD | Min 1, Max 8–16 (Configurable) | Governed by AIMD feedback controller |
+| **Logical DAG Width** | Unbounded | Scaled to task graph | Not capped by mission launch budgets |
+| **Worker Lifecycle** | Reusable Pool | Domain affinity caching | Reused from IDLE with warm context |
+| **Write Isolation** | Branch Worktree | Exclusive file ownership | Integrated sequentially via merge queue |
 
 ---
 
-## Specialist Subagent Taxonomy
+### 4-Tier Verification Pyramid & Local Repair
 
-| Subagent Role | Tool Group & Nature | Primary Mandate | Antigravity Mapping |
-|:---|:---|:---|:---|
-| **Explorer / Researcher** | Read-Only | Rapid codebase navigation, AST analysis, symbol tracing. | `TypeName='research'` or `self` |
-| **Implementer** | Controlled Writer | Precise, surgical code edits within disjoint boundaries. | `TypeName='self'` |
-| **Reviewer / Verifier** | Verification | Independent verification, automated tests, diff inspection. | `TypeName='self'` or `research` |
-| **Challenger / Auditor** | Adversarial | Edge-case probing, fuzzing, Victory compliance audit. | `TypeName='self'` (Adversarial) |
-| **Coordinator** | Domain Lead | Decomposes complex subproblems into 1–2 child leaves. | `define_subagent` (Dynamic) |
-
-### Standard Handoff Protocol
-Every specialist handoff conforms to this strict, evidence-backed schema:
 ```text
-### HANDOFF REPORT
-- OBJECTIVE:           [Assigned mandate or question investigated]
-- OBSERVATIONS:        [Key factual findings with exact file paths and line numbers]
-- LOGIC_CHAIN:         [Technical reasoning, root cause analysis, or architectural trace]
-- EVIDENCE:            [Exact code snippets, grep matches, test outputs, or diffs]
-- CAVEATS:             [Assumptions, risks, edge cases, or unverified items]
-- CONCLUSION:          [Actionable recommendation, fix summary, or approval verdict]
-- VERIFICATION_METHOD: [Exact command/check next owner can run to verify this finding]
-- NEXT_OWNER:          [Implementer | Reviewer / Verifier | Challenger / Auditor | Parent Orchestrator]
+       ▲
+      / \     Tier 4: Mission Victory Audit (Whole-Mission Acceptance)
+     /   \    Tier 3: Adversarial Challenge (Write Boundaries & Fuzzing)
+    /     \   Tier 2: Independent Verification (External Diff & Test Audit)
+   /_______\  Tier 1: Local Self-Test (Worker In-Context Validation)
 ```
+
+1. **Tier 1 (Self-Test)**: Executed locally by the worker before submitting work.
+2. **Tier 2 (Independent Verification)**: Executed by an unbiased reviewer or test suite.
+3. **Tier 3 (Adversarial Challenge)**: Verifies write-set exclusivity and stress-tests deliverables.
+4. **Tier 4 (Victory Audit)**: Validates whole-mission terminal states, required artifacts, and acceptance criteria.
 
 ---
 
-## Coordination Depth & Templates
+### Controlled Integration & Sequential Merge Queue
 
-Adaptive Orchestrator scales state tracking to mission complexity:
-- **L0 (Tiny / Solo)**: No persistent files.
-- **L1 (Focused / Small)**: Structured markdown summaries in tool responses.
-- **L2 (Multi-Wave)**: Artifacts created in conversation brain: `mission.md`, `progress.md`, `dead-ends.md`.
-- **L3 (Large / Staged / Hierarchical)**: Full state suite including `gates.md` and `final-audit.md`.
+- When concurrent tasks modify code, each operates in an isolated git worktree branch (`WorkspaceMode.BRANCH`).
+- Upon passing Tier 1–3 verification, the task is enqueued in the `MergeQueue`.
+- The `IntegrationManager` serializes merges onto the integration target, resolves commits, cleans up worktrees, and unlocks dependent DAG tasks.
 
-| Template | File | Purpose |
-|:---|:---|:---|
-| **Mission Ledger** | `templates/mission.md` | Live budget tracker, active workers registry, decisions. |
-| **Progress Tracker** | `templates/progress.md` | Wave-by-wave execution timeline and deliverables. |
-| **Dead-End Memory** | `templates/dead-ends.md` | Append-only log of falsified hypotheses to avoid repeat loops. |
-| **Stage-Gates** | `templates/gates.md` | Pre-transition verification checklist between waves. |
-| **Final Victory Audit** | `templates/final-audit.md` | Requirement compliance matrix and sign-off evidence. |
-| **Handoff Report** | `templates/handoff-report.md` | Universal specialist structured communication block. |
+---
+
+## Specialist Subagent Taxonomy & Worker Pool
+
+| Subagent Role | Tool Group | Nature | Primary Mandate |
+|:---|:---:|:---:|:---|
+| **Explorer / Researcher** | Read-Only | `FAST` | AST navigation, log tracing, doc lookup. |
+| **Implementer** | Controlled Writer | `PRO` | Surgical code edits within assigned write sets. |
+| **Reviewer / Verifier** | Verification | `FAST`/`PRO` | Automated test execution, linters, diff review. |
+| **Challenger / Auditor** | Adversarial | `PRO` | Write boundary verification, Victory compliance audit. |
 
 ---
 
 ## Comparison Matrix
 
-| Feature | Naive Multi-Agent | Teamwork Preview | Adaptive Orchestrator v4 |
-|:---|:---:|:---:|:---:|
-| **Delegation Triggers** | Ad-hoc / Prompt Dependent | Fixed Heavyweight Tree | **Dual Mandatory Gates (Phase 1 & 2)** |
-| **Concurrency Limit** | Unbounded (Swarm sprawl) | Variable / High | **Hard Cap (4 Max Tree-Wide)** |
-| **Mission Launch Ceiling** | Infinite / Unchecked | Often 20–50+ launches | **Strict Shared 10-Launch Cap** |
-| **File Writing Policy** | Concurrent writes to same file | Locking or Merge hell | **Single Writer Default / Branch Trees** |
-| **Hypothesis Memory** | None (Loops on failures) | Context-dependent | **Append-Only Dead-End Memory Log** |
-| **Workforce Lifecycle** | Agents persist indefinitely | Deep nesting | **Aggressive Multi-Phase Collapse to 0** |
-| **Independent Audit** | Rare | Built-in | **Victory-Style Adversarial Challenger** |
-| **Workspace Cleanliness** | Pollutes project root | Varies | **Zero Pollution (Brain Artifacts Only)** |
+| Feature | Naive Multi-Agent | Teamwork Preview | Adaptive Orchestrator v4 | Adaptive Orchestrator v5 |
+|:---|:---:|:---:|:---:|:---:|
+| **Pipeline Model** | Unstructured | Ad-hoc Trees | 5-Wave Sequential | **Dynamic Task DAG (Event-Driven)** |
+| **Physical Concurrency** | Unbounded | Static | Hard Cap (4 Max) | **Dynamic AIMD Feedback (Adaptive)** |
+| **Logical Task Limits** | Unbounded | Varies | 10 Total Launches | **Decoupled & Unbounded** |
+| **Worker Lifecycle** | Disposable | Deep Hierarchy | Kill at Wave Boundary | **Reusable Pool with Warm Context** |
+| **Write Safety** | File collisions | Merge conflicts | Single Writer Default | **Isolated Worktrees + Merge Queue** |
+| **Verification** | None | Ad-hoc Review | Victory-Style Review | **4-Tier Verification Pyramid** |
+| **Defect Handling** | Fail mission | Re-spawn tree | Budget exhaustion | **In-Context Local Repair Loop** |
+| **State & Durability** | Memory only | Ephemeral | Minimal | **Atomic Checkpoints & Crash Recovery** |
 
 ---
 
 ## Quick Start & Installation
 
 ### Option 1: Automatic 1-Command Installer
-Install directly into your local Gemini / Antigravity skills directory:
-
 ```bash
-# Clone the repository
 git clone https://github.com/naksh-07/adaptive-orchestrator.git
 cd adaptive-orchestrator
-
-# Run the installer
 python scripts/install.py
 ```
 
 ### Option 2: Manual Installation
-Copy the core assets to your Antigravity skills path:
 ```bash
 mkdir -p ~/.gemini/config/skills/adaptive-orchestrator
 cp -r SKILL.md AGENTS.md GEMINI.md manifest.json plugin.json skills.json subagents templates ~/.gemini/config/skills/adaptive-orchestrator/
 ```
 
 ### Activation in Antigravity
-When you ask Antigravity to handle a complex task or use orchestration:
 ```text
 "Activate adaptive-orchestrator and refactor the authentication module across frontend and backend."
 ```
@@ -241,45 +239,33 @@ When you ask Antigravity to handle a complex task or use orchestration:
 
 ## Built-In CLI Tools & Diagnostics
 
-### 1. Doctor (Diagnostic Health Check)
-Run self-diagnostics to verify environment health, manifest syntax, subagent schemas, and templates:
-
+### 1. Doctor Diagnostic Tool
 ```bash
 python scripts/doctor.py
 ```
-
 Output:
 ```text
 =================================================================
-       Adaptive Orchestrator v4.0.0 — Doctor Self-Check
+       Adaptive Orchestrator v5.0.0 — Doctor Self-Check
 =================================================================
   Python Environment:     PASS       (3.11.16 on win32)
   Core Assets Integrity:  PASS       (19/19 files verified)
   Manifests & Schemas:    PASS       (JSON & YAML syntax valid)
   Subagent Definitions:   PASS       (4 leaf subagents registered)
-  Multi-Wave Templates:   PASS       (6 markdown templates verified)
+  Coordination Templates: PASS       (6 markdown templates verified)
 -----------------------------------------------------------------
-  Overall System Health:  HEALTHY (v4.0.0 Ready for Deployment)
+  Overall System Health:  HEALTHY (v5.0.0 Ready for Deployment)
 =================================================================
 ```
 
-### 2. Budget & Concurrency Calculator
-Inspect or simulate mission budget allowances:
-
-```bash
-# Check if a spawn is permitted with 3 spawned and 2 currently active
-python scripts/budget_ledger.py --check 3 2
-# Output: Spawn Check [3/10 spawned, 2/4 active]: ALLOWED
-
-# Output ledger state in JSON
-python scripts/budget_ledger.py --json
-```
-
-### 3. Schema & Manifest Validator
-Verify all JSON schemas and Markdown structural invariants:
-
+### 2. Skill & Manifest Validator
 ```bash
 python scripts/validate_skill.py
+```
+
+### 3. Resource & Concurrency Ledger
+```bash
+python scripts/budget_ledger.py --status
 ```
 
 ---
@@ -288,73 +274,39 @@ python scripts/validate_skill.py
 
 ```text
 adaptive-orchestrator/
-├── .github/
-│   └── workflows/
-│       └── validate.yml              # GitHub Actions CI for manifest & test validation
-├── docs/
-│   ├── ARCHITECTURE.md               # 5-Wave lifecycle, Dual Gates, and State Machine
-│   ├── SUBAGENTS.md                  # Comprehensive guide for the 4 subagents & Coordinators
-│   └── WORKFLOW_EXAMPLES.md          # Real-world execution walkthroughs & sizing examples
-├── scripts/
-│   ├── doctor.py                     # Self-check diagnostic script
-│   ├── budget_ledger.py              # 10-launch budget & concurrency calculator
-│   ├── install.py                    # 1-command installer into ~/.gemini/config/skills
-│   └── validate_skill.py             # Manifest, template & subagent schema validator
-├── subagents/
-│   ├── challenger-auditor.md         # Adversarial Victory-style auditor subagent
-│   ├── explorer-researcher.md        # Read-heavy reconnaissance subagent
-│   ├── implementer.md                # Controlled single-writer implementer subagent
-│   ├── reviewer-verifier.md          # Independent verification subagent
-│   └── subagents-definition.json     # Machine-readable subagent schema definitions
-├── templates/
-│   ├── dead-ends.md                  # Append-only falsification memory log template
-│   ├── final-audit.md                # Victory completion report template
-│   ├── gates.md                      # Stage-gate verification matrix template
-│   ├── handoff-report.md             # Standardized handoff schema template
-│   ├── mission.md                    # Live mission status & budget ledger template
-│   └── progress.md                   # Multi-wave progress tracker template
-├── tests/
-│   ├── __init__.py
-│   ├── test_manifests.py             # Manifest & schema integrity test suite
-│   └── test_budget_ledger.py         # Budget calculator & concurrency invariant tests
-├── .gitignore
-├── AGENTS.md                         # Orchestration behavioral rules
-├── CHANGELOG.md                      # Release notes & version history
-├── CONTRIBUTING.md                   # Contribution guidelines
-├── GEMINI.md                         # Gemini model instruction rules
-├── LICENSE                           # Apache 2.0 License
-├── manifest.json                     # Antigravity skill manifest
-├── plugin.json                       # Plugin descriptor
-├── pyproject.toml                    # Python project packaging metadata
-├── README.md                         # Primary documentation
-├── requirements.txt                  # Minimal dev dependencies
-├── SKILL.md                          # Full v4 Foundation core skill specification
-└── skills.json                       # Standard skill registry manifest
+├── orchestrator/           # Core v5 Engine Architecture
+│   ├── engine.py           # MissionEngine facade & lifecycle
+│   ├── models.py           # Domain models & state machine
+│   ├── graph/              # DependencyGraph & dynamic mutations
+│   ├── scheduler/          # EventDrivenScheduler & ReadyQueue
+│   ├── workers/            # WorkerRegistry, pooling & domain affinity
+│   ├── workspace/          # WorktreeAdapter & WorkspaceRegistry
+│   ├── integration/        # MergeQueue & IntegrationManager
+│   ├── verification/       # 4-Tier Verification Pyramid & repair
+│   ├── persistence/        # Atomic checkpointing & crash recovery
+│   └── telemetry/          # Authoritative metric collection
+├── scripts/                # CLI tools (doctor, validate, ledger)
+├── subagents/              # Leaf specialist descriptors
+├── templates/              # Coordination templates (mission, gates, progress)
+├── tests/                  # Exhaustive unit & integration test suites
+├── SKILL.md                # Global orchestrator skill definition
+├── AGENTS.md               # User orchestration rules
+└── GEMINI.md               # User orchestration rules
 ```
 
 ---
 
 ## Testing & Quality Assurance
 
-Run the automated test suite locally:
-
+Run the comprehensive test suite:
 ```bash
-python -m unittest discover -s tests -p "test_*.py" -v
+python -m unittest discover tests
+python scripts/doctor.py
+python scripts/validate_skill.py
 ```
-
-All 10 unit tests validate:
-- Manifest JSON integrity & cross-referenced file existence
-- Subagent schema definitions & leaf mappings
-- Budget ledger concurrency caps (4 active max)
-- Total launch mission ceiling (10 launches max)
-- Coordinator quota reservation and automatic unused quota release
-- Workforce collapse state transitions
 
 ---
 
 ## License
 
-Adaptive Orchestrator is released under the **Apache-2.0 License**.
-See the [LICENSE](LICENSE) file for details.
-
-Copyright (c) 2026 Suraj ([@naksh-07](https://github.com/naksh-07)) and Adaptive Orchestrator Contributors.
+Apache-2.0. Copyright (c) 2026 Antigravity Team & Contributors.

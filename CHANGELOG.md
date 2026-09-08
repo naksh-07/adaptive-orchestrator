@@ -5,6 +5,29 @@ All notable changes to **Adaptive Orchestrator** will be documented in this file
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.0.0] - 2026-09-08
+
+### Added
+- **Dynamic Task DAG & Continuous Dispatch**: Replaced rigid 5-wave synchronization barriers with continuous event-driven ready queue.
+- **AIMD Adaptive Concurrency Controller**: Replaced artificial 4-worker/10-launch limits with dynamic capacity scaling (C ∈ [2, 8]) driven by real-time execution feedback.
+- **Decoupled Logical DAG Width**: Scalable logical task parallelism independently decoupled from physical worker capacity.
+- **Reusable Domain Worker Pool**: Warm context retention across tasks within domain affinity, eliminating spawn/kill churn.
+- **Intelligent Model Router**: Deterministic routing to FAST (Gemini Flash) or PRO (Gemini Pro) tiers based on complexity, risk, and failure history.
+- **Workspace Isolation & Write Ownership Registry**: Strict path-normalized write set locking with collision detection and Git worktree branching.
+- **Serialized Integration Queue**: Deterministic sequential merge processing preventing workspace corruption.
+- **4-Tier Verification Pyramid**: Pipelined verification architecture:
+  - Tier 1: Local worker self-validation.
+  - Tier 2: Independent verification (syntax, AST, test execution).
+  - Tier 3: Adversarial challenger (undeclared write detection and edge-case stress testing).
+  - Tier 4: Whole-mission Victory Audit confirming global acceptance criteria.
+- **In-Context Local Repair Loop**: Compact, focused `RepairPayload` directing targeted fixes within the same worker workspace.
+- **Atomic Checkpoint Persistence & Crash Recovery**: Crash-resilient recovery converting interrupted active tasks back to ready while purging stale locks.
+- **Authoritative Telemetry Engine**: Event-driven metrics tracking concurrency, queue wait times, worker reuses, and model tier distributions.
+
+### Changed
+- Removed artificial v4 caps (`MAX_CONCURRENT=4`, `MAX_TOTAL_LAUNCHES=10`, 5-wave execution barriers).
+- Upgraded all manifests, skills, schemas, and templates to v5.0.0.
+
 ## [4.0.0] - 2026-08-24
 
 ### Added

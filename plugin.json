@@ -1,8 +1,8 @@
 {
   "id": "adaptive-orchestrator",
   "name": "Adaptive Orchestrator",
-  "version": "4.0.0",
-  "description": "Production-grade Antigravity-native global orchestration skill and multi-agent coordination system (v4 Foundation).",
+  "version": "5.0.0",
+  "description": "Production-grade Antigravity-native global orchestration skill and multi-agent coordination system (v5 Architecture).",
   "skills": [
     {
       "name": "adaptive-orchestrator",

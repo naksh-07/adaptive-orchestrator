@@ -863,6 +863,8 @@ class MissionEngine:
         Returns tuple of (completed_task, list_of_newly_ready_tasks).
         """
         task = self._graph.get_task(task_id)
+        if task.status in (TaskState.PASSED, TaskState.MERGED):
+            return task, []
         task.result = result or {}
         task.transition_to(TaskState.PASSED)
 
@@ -922,20 +924,21 @@ class MissionEngine:
         Returns tuple of (merged_task, list_of_newly_ready_tasks).
         """
         task = self._graph.get_task(task_id)
-        if task.status == TaskState.PASSED:
-            task.transition_to(TaskState.MERGED)
-        elif task.can_transition_to(TaskState.MERGED):
-            task.transition_to(TaskState.MERGED)
+        if task.status != TaskState.MERGED:
+            if task.status == TaskState.PASSED:
+                task.transition_to(TaskState.MERGED)
+            elif task.can_transition_to(TaskState.MERGED):
+                task.transition_to(TaskState.MERGED)
 
-        self._emit(
-            EventType.TASK_STATE_CHANGED,
-            task_id=task_id,
-            payload={
-                "old_state": TaskState.PASSED.value,
-                "new_state": TaskState.MERGED.value,
-                "commit_id": commit_id,
-            }
-        )
+            self._emit(
+                EventType.TASK_STATE_CHANGED,
+                task_id=task_id,
+                payload={
+                    "old_state": TaskState.PASSED.value,
+                    "new_state": TaskState.MERGED.value,
+                    "commit_id": commit_id,
+                }
+            )
 
         # Resolve newly ready dependents
         newly_ready = self._resolver.resolve_dependents_on_completion(task_id)
@@ -974,6 +977,8 @@ class MissionEngine:
         If permanently failed, transitions pending dependents to BLOCKED.
         """
         task = self._graph.get_task(task_id)
+        if task.status == TaskState.FAILED:
+            return task
         task.error = error
 
         if can_retry is not None:
