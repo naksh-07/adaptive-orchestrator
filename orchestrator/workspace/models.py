@@ -21,6 +21,16 @@ class WorkspaceMode(str, Enum):
     IN_PLACE = "in_place"  # In-place execution mode
 
 
+class WorkspaceIsolationType(str, Enum):
+    """
+    Distinguishes native Antigravity workspace isolation from internal Git worktrees.
+    Prevents false claims about platform-level features.
+    """
+    NATIVE_ANTIGRAVITY = "native_antigravity"      # Runtime manages worktree via invoke_subagent(Workspace='branch')
+    INTERNAL_GIT_WORKTREE = "internal_git_worktree"  # Python subprocess manages worktree via git worktree add
+    SHARED_FILESYSTEM = "shared_filesystem"          # Shared workspace without worktree isolation
+
+
 class WorkspaceReleaseState(str, Enum):
     """
     Lifecycle and release state for a workspace ownership allocation.
@@ -43,6 +53,7 @@ class WorkspaceRecord:
     workspace_mode: str = WorkspaceMode.BRANCH.value
     workspace_path: str = ""
     branch_name: Optional[str] = None
+    isolation_type: str = WorkspaceIsolationType.INTERNAL_GIT_WORKTREE.value
     read_set: Set[str] = field(default_factory=set)
     write_set: Set[str] = field(default_factory=set)
     acquired_at: float = field(default_factory=time.time)
@@ -72,6 +83,7 @@ class WorkspaceRecord:
             "task_id": self.task_id,
             "worker_id": self.worker_id,
             "workspace_mode": self.workspace_mode,
+            "isolation_type": self.isolation_type,
             "workspace_path": self.workspace_path,
             "branch_name": self.branch_name,
             "read_set": sorted(list(self.read_set)),

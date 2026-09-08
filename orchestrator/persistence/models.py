@@ -34,6 +34,7 @@ class SerializedMissionState:
     mission: Dict[str, Any]
     tasks: Any
     dependencies: Dict[str, List[str]] = field(default_factory=dict)
+    workers: Dict[str, Dict[str, Any]] = field(default_factory=dict)
     events: List[Dict[str, Any]] = field(default_factory=list)
     metadata: Dict[str, Any] = field(default_factory=dict)
     timestamp: float = field(default_factory=time.time)
@@ -62,6 +63,7 @@ class SerializedMissionState:
             "mission": self.mission,
             "tasks": self.tasks,
             "dependencies": self.dependencies,
+            "workers": self.workers,
             "events": self.events,
             "metadata": self.metadata,
         }
@@ -79,10 +81,19 @@ class SerializedMissionState:
         else:
             tasks_val = dict(raw_tasks)
 
+        raw_workers = data.get("workers", {})
+        if isinstance(raw_workers, list):
+            workers_val = {w.get("worker_id", ""): w for w in raw_workers if isinstance(w, dict)}
+        elif isinstance(raw_workers, dict):
+            workers_val = dict(raw_workers)
+        else:
+            workers_val = {}
+
         return cls(
             mission=dict(data.get("mission", {})),
             tasks=tasks_val,
             dependencies=dict(data.get("dependencies", {})),
+            workers=workers_val,
             events=list(data.get("events", [])),
             metadata=dict(data.get("metadata", {})),
             timestamp=float(data.get("timestamp", time.time())),

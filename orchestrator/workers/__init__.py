@@ -7,6 +7,9 @@ from orchestrator.workers.adapter import (
     ExecutionResult,
     LocalExecutionAdapter,
     MockExecutionAdapter,
+    NativeDispatchInstruction,
+    NativeExecutionAdapter,
+    NativeRepairInstruction,
 )
 from orchestrator.workers.affinity import DomainAffinityPolicy
 from orchestrator.workers.models import (
@@ -26,4 +29,7 @@ __all__ = [
     "ExecutionResult",
     "MockExecutionAdapter",
     "LocalExecutionAdapter",
+    "NativeExecutionAdapter",
+    "NativeDispatchInstruction",
+    "NativeRepairInstruction",
 ]

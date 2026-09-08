@@ -76,7 +76,7 @@ class WorkerMetrics:
 class Worker:
     """
     Canonical Worker entity representing a reusable logical agent worker.
-    Decoupled from actual Antigravity process mechanics.
+    Tracks both internal orchestration state and Antigravity native runtime identity.
     """
     worker_id: str
     domain: str = "general"
@@ -89,6 +89,15 @@ class Worker:
     created_at: float = field(default_factory=time.time)
     last_active_at: float = field(default_factory=time.time)
     conversation_id: Optional[str] = None
+    native_agent_name: Optional[str] = None
+    native_session_id: Optional[str] = None
+    model_tier: Optional[str] = None
+    resolved_model: Optional[str] = None
+    workspace_mode: Optional[str] = None
+    branch_name: Optional[str] = None
+    workspace_path: Optional[str] = None
+    is_native: bool = False
+    is_reusable: bool = True
     metadata: Dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -98,6 +107,11 @@ class Worker:
             self.supported_domains = set(self.supported_domains) if self.supported_domains else set()
         if not self.supported_domains and self.domain:
             self.supported_domains = {self.domain}
+        # Synchronize conversation_id and native_session_id
+        if self.conversation_id and not self.native_session_id:
+            self.native_session_id = self.conversation_id
+        elif self.native_session_id and not self.conversation_id:
+            self.conversation_id = self.native_session_id
 
     def mark_failed(self, reason: str = "") -> None:
         """Transitions worker to FAILED state."""
@@ -238,5 +252,56 @@ class Worker:
             "created_at": self.created_at,
             "last_active_at": self.last_active_at,
             "conversation_id": self.conversation_id,
+            "native_agent_name": self.native_agent_name,
+            "native_session_id": self.native_session_id or self.conversation_id,
+            "model_tier": self.model_tier,
+            "resolved_model": self.resolved_model,
+            "workspace_mode": self.workspace_mode,
+            "branch_name": self.branch_name,
+            "workspace_path": self.workspace_path,
+            "is_native": self.is_native,
+            "is_reusable": self.is_reusable,
             "metadata": dict(self.metadata),
         }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> Worker:
+        """Constructs a Worker from serialized dictionary representation."""
+        metrics_data = data.get("metrics", {})
+        metrics = WorkerMetrics(
+            tasks_completed=metrics_data.get("tasks_completed", 0),
+            tasks_failed=metrics_data.get("tasks_failed", 0),
+            consecutive_failures=metrics_data.get("consecutive_failures", 0),
+            total_execution_time=metrics_data.get("total_execution_time", 0.0),
+        )
+        state_str = data.get("state", WorkerState.IDLE.value)
+        try:
+            state = WorkerState(state_str)
+        except ValueError:
+            state = WorkerState.IDLE
+
+        cid = data.get("conversation_id") or data.get("native_session_id")
+
+        return cls(
+            worker_id=data["worker_id"],
+            domain=data.get("domain", "general"),
+            supported_domains=set(data.get("supported_domains", [])),
+            max_concurrency=data.get("max_concurrency", 1),
+            state=state,
+            current_task_id=data.get("current_task_id"),
+            task_history=list(data.get("task_history", [])),
+            metrics=metrics,
+            created_at=float(data.get("created_at", time.time())),
+            last_active_at=float(data.get("last_active_at", time.time())),
+            conversation_id=cid,
+            native_agent_name=data.get("native_agent_name"),
+            native_session_id=cid,
+            model_tier=data.get("model_tier"),
+            resolved_model=data.get("resolved_model"),
+            workspace_mode=data.get("workspace_mode"),
+            branch_name=data.get("branch_name"),
+            workspace_path=data.get("workspace_path"),
+            is_native=bool(data.get("is_native", False)),
+            is_reusable=bool(data.get("is_reusable", True)),
+            metadata=dict(data.get("metadata", {})),
+        )

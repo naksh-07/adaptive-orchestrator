@@ -24,6 +24,7 @@ from orchestrator.persistence.models import (
     RecoveryReport,
     SerializedMissionState,
 )
+from orchestrator.workers.models import Worker, WorkerState
 
 if TYPE_CHECKING:
     from orchestrator.engine import MissionEngine
@@ -141,12 +142,18 @@ class PersistenceManager:
             tasks_data[task.task_id] = t_dict
             deps_data[task.task_id] = sorted(list(task.dependencies))
 
+        workers_data: Dict[str, Dict[str, Any]] = {}
+        if hasattr(engine, "workers") and engine.workers:
+            for worker in engine.workers.all_workers():
+                workers_data[worker.worker_id] = worker.to_dict()
+
         events_data = [e.to_dict() for e in engine.get_events()]
 
         state = SerializedMissionState(
             mission=engine.mission.to_dict(),
             tasks=tasks_data,
             dependencies=deps_data,
+            workers=workers_data,
             events=events_data,
             metadata={
                 "sequence_counter": engine._sequence_counter,
@@ -313,6 +320,20 @@ class PersistenceManager:
             for prereq_id in prereqs:
                 if engine.graph.has_task(dependent_id) and engine.graph.has_task(prereq_id):
                     engine.graph.add_dependency(dependent_id, prereq_id)
+
+        # 2.5 Restore Workers and detect stale native sessions
+        if hasattr(state, "workers") and state.workers and engine.workers:
+            for w_id, w_data in state.workers.items():
+                if not engine.workers.has_worker(w_id):
+                    restored_worker = Worker.from_dict(w_data)
+                    # Detect stale live native session:
+                    # Stale native identity must not silently become an active healthy worker without verified reattachment
+                    if restored_worker.conversation_id:
+                        restored_worker.current_task_id = None
+                        restored_worker.state = WorkerState.IDLE
+                        restored_worker.metadata["restored_from_checkpoint"] = True
+                        restored_worker.metadata["stale_session_detected"] = True
+                    engine.workers.register_worker(restored_worker)
 
         # 3. Neutralize stale workspace locks
         # Stale persisted active workspace ownership locks are deliberately NOT restored.

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Adaptive Orchestrator v5 — Real Antigravity Runtime Acceptance Test
+Adaptive Orchestrator v5 -- V5 Engine Runtime Acceptance Test
 Executes a real runtime acceptance test exercising:
   1. Read-only verification of skill, manifests, and subagents
   2. 9-task non-trivial DAG across 4 domains (backend, frontend, infrastructure, testing)
@@ -367,7 +367,7 @@ def run_runtime_acceptance_test() -> Dict[str, Any]:
     telemetry_path = os.path.join(synthetic_repo, "telemetry_acceptance.json")
 
     print("=" * 80)
-    print("      ADAPTIVE ORCHESTRATOR v5 — REAL ANTIGRAVITY RUNTIME ACCEPTANCE TEST")
+    print("      ADAPTIVE ORCHESTRATOR v5 -- V5 ENGINE RUNTIME ACCEPTANCE TEST")
     print("=" * 80)
     print(f"Synthetic Environment: {synthetic_repo}")
 

@@ -27,6 +27,8 @@ class WorkerRegistry:
     def __init__(self) -> None:
         self._workers: Dict[str, Worker] = {}
         self._task_to_worker: Dict[str, str] = {}
+        self._internal_reuse_count: int = 0
+        self._native_reuse_count: int = 0
 
     def register_worker(self, worker: Worker) -> None:
         """
@@ -185,3 +187,72 @@ class WorkerRegistry:
     def busy_count(self) -> int:
         """Number of currently busy workers."""
         return sum(1 for w in self._workers.values() if w.is_busy)
+
+    @property
+    def internal_reuse_count(self) -> int:
+        """Count of internal (simulated/mock) worker reuse operations."""
+        return self._internal_reuse_count
+
+    @property
+    def native_reuse_count(self) -> int:
+        """Count of verified Antigravity native conversation reuse operations."""
+        return self._native_reuse_count
+
+    @property
+    def total_reuse_count(self) -> int:
+        """Combined total reuse operations across all workers."""
+        return self._internal_reuse_count + self._native_reuse_count
+
+    def record_reuse(self, worker_id: str, is_native: bool = False) -> None:
+        """
+        Explicitly records a worker reuse event, separating internal from native reuse.
+        """
+        if is_native:
+            self._native_reuse_count += 1
+        else:
+            self._internal_reuse_count += 1
+
+    def find_by_conversation_id(self, conversation_id: str) -> Optional[Worker]:
+        """
+        Finds a worker by its Antigravity native conversation/session identifier.
+        """
+        if not conversation_id:
+            return None
+        for worker in self._workers.values():
+            if worker.conversation_id == conversation_id or worker.native_session_id == conversation_id:
+                return worker
+        return None
+
+    def find_by_native_agent(self, native_agent_name: str) -> List[Worker]:
+        """
+        Returns all workers associated with the specified native agent name (e.g. 'explorer').
+        """
+        return sorted(
+            [w for w in self._workers.values() if w.native_agent_name == native_agent_name],
+            key=lambda w: w.worker_id,
+        )
+
+    def bind_native_conversation(self, worker_id: str, conversation_id: str) -> Worker:
+        """
+        Binds an active Antigravity native conversation ID to a worker.
+        """
+        worker = self.get_worker(worker_id)
+        worker.conversation_id = conversation_id
+        worker.native_session_id = conversation_id
+        worker.is_native = True
+        return worker
+
+    def mark_native_session_stale(self, worker_id: str, reason: str = "") -> Worker:
+        """
+        Marks a worker's native session as stale/detached upon restart or crash recovery.
+        Clears the live conversation ID so a stale session is never assumed to be active.
+        """
+        worker = self.get_worker(worker_id)
+        worker.conversation_id = None
+        worker.native_session_id = None
+        worker.is_native = False
+        if reason:
+            worker.metadata["stale_reason"] = reason
+        return worker
+
+

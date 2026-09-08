@@ -16,6 +16,12 @@
     "subagents/reviewer-verifier.md",
     "subagents/challenger-auditor.md"
   ],
+  "agents": [
+    ".agents/agents/explorer/agent.md",
+    ".agents/agents/implementer/agent.md",
+    ".agents/agents/reviewer-verifier/agent.md",
+    ".agents/agents/challenger-auditor/agent.md"
+  ],
   "templates": [
     "templates/mission.md",
     "templates/progress.md",

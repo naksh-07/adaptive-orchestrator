@@ -245,17 +245,21 @@ python scripts/doctor.py
 ```
 Output:
 ```text
-=================================================================
-       Adaptive Orchestrator v5.0.0 — Doctor Self-Check
-=================================================================
-  Python Environment:     PASS       (3.11.16 on win32)
-  Core Assets Integrity:  PASS       (19/19 files verified)
-  Manifests & Schemas:    PASS       (JSON & YAML syntax valid)
-  Subagent Definitions:   PASS       (4 leaf subagents registered)
-  Coordination Templates: PASS       (6 markdown templates verified)
------------------------------------------------------------------
-  Overall System Health:  HEALTHY (v5.0.0 Ready for Deployment)
-=================================================================
+====================================================================
+       Adaptive Orchestrator v5.0.0 -- Truthful Doctor Self-Check
+====================================================================
+  Python Environment:         [PASS]         (3.11.16 on win32)
+  Core Assets Integrity:      [PASS]         (23/23 files verified)
+  Manifests & Schemas:        [PASS]         (JSON & YAML syntax valid)
+  Internal Agent Definitions: [PASS]         (subagents/ metadata verified)
+  Native Agent Definitions:   [PASS]         (.agents/agents/ YAML frontmatter valid)
+  Native Agent Discovery:     [PASS]         (Workspace .agents/agents/ verified)
+  Native Tool Invocation:     NOT VERIFIED   (Requires active Antigravity session)
+  Native Runtime Smoke Test:  NOT VERIFIED   (Requires live invoke_subagent trace)
+  Coordination Templates:     [PASS]         (6 markdown templates verified)
+--------------------------------------------------------------------
+  Overall System Status:      HEALTHY (Engine & Native Static Definitions Verified)
+====================================================================
 ```
 
 ### 2. Skill & Manifest Validator
@@ -263,7 +267,17 @@ Output:
 python scripts/validate_skill.py
 ```
 
-### 3. Resource & Concurrency Ledger
+### 3. Native Runtime Acceptance Test
+```bash
+python scripts/run_native_acceptance_test.py
+```
+
+### 4. V5 Engine Runtime Acceptance Test
+```bash
+python scripts/run_v5_acceptance_test.py
+```
+
+### 5. Resource & Concurrency Ledger
 ```bash
 python scripts/budget_ledger.py --status
 ```
@@ -274,21 +288,32 @@ python scripts/budget_ledger.py --status
 
 ```text
 adaptive-orchestrator/
+├── .agents/                # Canonical Antigravity Runtime Integration
+│   └── agents/             # Native subagent definitions (YAML frontmatter)
+│       ├── explorer/       # Read-heavy reconnaissance specialist (flash)
+│       ├── implementer/    # Surgical code implementation specialist (pro)
+│       ├── reviewer-verifier/  # Independent verification specialist (flash)
+│       └── challenger-auditor/ # Adversarial & Victory audit specialist (pro)
 ├── orchestrator/           # Core v5 Engine Architecture
 │   ├── engine.py           # MissionEngine facade & lifecycle
 │   ├── models.py           # Domain models & state machine
 │   ├── graph/              # DependencyGraph & dynamic mutations
-│   ├── scheduler/          # EventDrivenScheduler & ReadyQueue
-│   ├── workers/            # WorkerRegistry, pooling & domain affinity
+│   ├── scheduler/          # EventDrivenScheduler, AIMD & ReadyQueue
+│   ├── workers/            # WorkerRegistry, pooling & NativeExecutionAdapter
 │   ├── workspace/          # WorktreeAdapter & WorkspaceRegistry
 │   ├── integration/        # MergeQueue & IntegrationManager
 │   ├── verification/       # 4-Tier Verification Pyramid & repair
 │   ├── persistence/        # Atomic checkpointing & crash recovery
 │   └── telemetry/          # Authoritative metric collection
-├── scripts/                # CLI tools (doctor, validate, ledger)
-├── subagents/              # Leaf specialist descriptors
+├── scripts/                # CLI tools & acceptance test scripts
+│   ├── doctor.py           # Truthful diagnostic self-check
+│   ├── validate_skill.py   # Manifest & agent schema validator
+│   ├── install.py          # Skill & native agent installer
+│   ├── run_native_acceptance_test.py # Native runtime integration suite
+│   └── run_v5_acceptance_test.py     # V5 engine runtime acceptance suite
+├── subagents/              # Internal metadata & role descriptions
 ├── templates/              # Coordination templates (mission, gates, progress)
-├── tests/                  # Exhaustive unit & integration test suites
+├── tests/                  # Exhaustive unit test suites (271 tests)
 ├── SKILL.md                # Global orchestrator skill definition
 ├── AGENTS.md               # User orchestration rules
 └── GEMINI.md               # User orchestration rules
@@ -298,11 +323,13 @@ adaptive-orchestrator/
 
 ## Testing & Quality Assurance
 
-Run the comprehensive test suite:
+Run the comprehensive test and verification suites:
 ```bash
 python -m unittest discover tests
 python scripts/doctor.py
 python scripts/validate_skill.py
+python scripts/run_native_acceptance_test.py
+python scripts/run_v5_acceptance_test.py
 ```
 
 ---

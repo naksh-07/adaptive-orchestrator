@@ -8,5 +8,23 @@
       "name": "adaptive-orchestrator",
       "path": "SKILL.md"
     }
+  ],
+  "agents": [
+    {
+      "name": "explorer",
+      "path": ".agents/agents/explorer/agent.md"
+    },
+    {
+      "name": "implementer",
+      "path": ".agents/agents/implementer/agent.md"
+    },
+    {
+      "name": "reviewer-verifier",
+      "path": ".agents/agents/reviewer-verifier/agent.md"
+    },
+    {
+      "name": "challenger-auditor",
+      "path": ".agents/agents/challenger-auditor/agent.md"
+    }
   ]
 }

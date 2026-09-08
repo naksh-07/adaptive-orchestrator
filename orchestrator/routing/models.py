@@ -56,10 +56,20 @@ class ExecutionProfile:
     def reason(self) -> str:
         return self.routing_reason
 
+    @property
+    def native_model(self) -> str:
+        """Returns the exact native Antigravity model identifier ('flash', 'pro', 'inherit')."""
+        if self.tier == ModelTier.PRO or "pro" in str(self.model_id).lower():
+            return "pro"
+        if self.tier == ModelTier.FAST or "flash" in str(self.model_id).lower():
+            return "flash"
+        return "inherit"
+
     def to_dict(self) -> Dict[str, Any]:
         return {
             "tier": self.tier.value if hasattr(self.tier, "value") else str(self.tier),
             "model_id": self.model_id,
+            "native_model": self.native_model,
             "routing_reason": self.routing_reason,
             "fast_candidate": self.fast_candidate,
             "risk_score": self.risk_score,
