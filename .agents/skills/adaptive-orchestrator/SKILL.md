@@ -56,30 +56,29 @@ FINAL ACCEPTANCE & WORKFORCE CONCLUSION
 
 ### B. Phase 1: Pre-Planning Dispatch Gate
 Evaluated immediately upon orchestrator activation.
-- **Trigger A (3+ Distinct Domains)**: If understanding requires probing 3+ domains (e.g. backend API, frontend UI, database schema, build/CI), delegation is mandatory.
-- **Trigger B (2+ Independent Reconnaissance Lanes)**: If 2+ distinct subsystems can be investigated independently without shared state.
-- **Action**: Output the **Pre-Planning Checklist** and dispatch initial explorer/researcher specialist(s) via `invoke_subagent` before reading extensive file bodies.
+- **Mandate**: Whenever `/adaptive-orchestrator` is invoked or any multi-step task is requested, delegation is **MANDATORY**.
+- **Action**: Output the **Pre-Planning Checklist** and dispatch initial `explorer` specialist(s) via `invoke_subagent` before reading extensive codebase files yourself.
 
 ```text
 [PRE-PLANNING DELEGATION GATE]
-COMPLEXITY_TRIGGER: [DOMAINS >= 3 | INDEPENDENT_LANES >= 2 | BELOW_THRESHOLD]
-DELEGATION_MANDATORY: [YES | NO]
-PLANNED_RECON_WORKFORCE: [N Explorer/Researcher specialists]
-FIRST_ACTION: [invoke_subagent(...) | Solo Reconnaissance]
+COMPLEXITY_TRIGGER: MANDATORY_ORCHESTRATION
+DELEGATION_MANDATORY: YES
+PLANNED_RECON_WORKFORCE: [N Explorer specialists]
+FIRST_ACTION: invoke_subagent(TypeName='explorer', Role='Discovery Specialist', Prompt='...')
 ```
 
 ### C. Phase 2: Post-Approval Execution Dispatch Gate
 Evaluated after user plan approval (or Auto-Proceed) before modifying any source code.
-- **Trigger**: Any implementation spanning 2+ independent files, modules, or services.
-- **Action**: Output the **Execution Dispatch Checklist** and dispatch initial implementation domain specialists before modifying code locally.
+- **Mandate**: The parent orchestrator NEVER writes code directly. All code modifications MUST be delegated to `implementer`.
+- **Action**: Output the **Execution Dispatch Checklist** and dispatch `implementer` specialists via `invoke_subagent` (or reuse warm workers via `send_message`).
 
 ```text
 [EXECUTION DISPATCH GATE]
 INDEPENDENT_STREAMS: [Count of independent execution streams]
-DELEGATION_MANDATORY: [YES | NO]
-TARGET_DOMAINS: [List of domains: backend, frontend, infra, test, etc.]
-DISPATCH_STRATEGY: [Pooled Worker Reuse | Spawn Domain Worker]
-FIRST_ACTION: [Dispatch to Reusable Worker Pool | Single Controlled Writer]
+DELEGATION_MANDATORY: YES
+TARGET_DOMAINS: [List of domains: backend, frontend, test, etc.]
+DISPATCH_STRATEGY: [Pooled Worker Reuse (send_message) | Spawn Domain Worker (invoke_subagent)]
+FIRST_ACTION: invoke_subagent(TypeName='implementer', Role='Implementation Specialist', Prompt='...')
 ```
 
 ---
@@ -219,6 +218,13 @@ The parent orchestrator acts as the technical lead and strategic director:
 - **Final Acceptance**: Review Tier 4 Victory Audit evidence and deliver the final report.
 
 The parent does **NOT** manually perform repetitive per-task merges, write-set checking, or manual wave policing—these are driven automatically by the engine, scheduler, and verification pipeline.
+
+### CRITICAL NON-BYPASSABLE LAW: ZERO DIRECT TOOL EXECUTION
+The parent orchestrator is an **ORCHESTRATOR**, NOT a worker:
+1. **STRICTLY FORBIDDEN from calling write tools directly**: You MUST NOT call `write_to_file` or `replace_file_content` to edit project source code. All code changes MUST be delegated to an `implementer` subagent via `invoke_subagent` (or `send_message` for worker reuse).
+2. **STRICTLY FORBIDDEN from extensive manual reconnaissance**: You MUST NOT call `view_file` or `grep_search` to read dozens of codebase files yourself. You MUST dispatch an `explorer` subagent via `invoke_subagent`.
+3. **STRICTLY FORBIDDEN from running test suites directly**: Verification MUST be performed by dispatching a `reviewer-verifier` or `challenger-auditor` subagent.
+4. **MANDATORY DISPATCH**: When this skill is active, you MUST invoke subagents via `invoke_subagent` in every phase. If you perform the task directly without calling `invoke_subagent`, the orchestration has failed.
 
 ---
 
