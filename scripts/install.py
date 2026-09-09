@@ -134,15 +134,47 @@ def install(
             os.makedirs(plugin_agents_dir, exist_ok=True)
             os.makedirs(plugin_rules_dir, exist_ok=True)
 
-            # Copy plugin.json
-            src_plugin_json = os.path.join(repo_root, "plugin.json")
-            if os.path.exists(src_plugin_json):
-                shutil.copy2(src_plugin_json, os.path.join(plugin_dir, "plugin.json"))
+            # Write tailored plugin.json
+            tailored_plugin = {
+                "id": "adaptive-orchestrator",
+                "name": "Adaptive Orchestrator",
+                "version": "5.0.0",
+                "description": "Production-grade Antigravity-native global orchestration skill and multi-agent coordination system (v5 Architecture).",
+                "skills": [
+                    {
+                        "name": "adaptive-orchestrator",
+                        "path": "skills/adaptive-orchestrator/SKILL.md"
+                    }
+                ],
+                "agents": [
+                    {
+                        "name": "explorer",
+                        "path": "agents/explorer/agent.md"
+                    },
+                    {
+                        "name": "implementer",
+                        "path": "agents/implementer/agent.md"
+                    },
+                    {
+                        "name": "reviewer-verifier",
+                        "path": "agents/reviewer-verifier/agent.md"
+                    },
+                    {
+                        "name": "challenger-auditor",
+                        "path": "agents/challenger-auditor/agent.md"
+                    }
+                ]
+            }
+            with open(os.path.join(plugin_dir, "plugin.json"), "w", encoding="utf-8") as f:
+                json.dump(tailored_plugin, f, indent=2)
 
-            # Copy rules (AGENTS.md)
+            # Copy rules (AGENTS.md and GEMINI.md)
             src_agents_md = os.path.join(repo_root, "AGENTS.md")
             if os.path.exists(src_agents_md):
                 shutil.copy2(src_agents_md, os.path.join(plugin_rules_dir, "AGENTS.md"))
+            src_gemini_md = os.path.join(repo_root, "GEMINI.md")
+            if os.path.exists(src_gemini_md):
+                shutil.copy2(src_gemini_md, os.path.join(plugin_rules_dir, "GEMINI.md"))
 
             # Copy skill files into plugin skills
             shutil.copy2(os.path.join(repo_root, "SKILL.md"), os.path.join(plugin_skills_dir, "SKILL.md"))

@@ -60,7 +60,10 @@ When a task is dispatched to an uninitialized worker, `NativeExecutionAdapter` g
   "Workspace": "branch"
 }
 ```
-If the environment has not discovered `.agents/agents/`, the orchestrator falls back to built-in types (`TypeName='self'` or `TypeName='research'`), or defines them via `define_subagent`.
+If the environment has not discovered `.agents/agents/`, the orchestrator MUST define canonical subagent roles via `define_subagent` and strictly avoid built-in fallback types like `TypeName='self'`.
+
+### ZERO DIRECT WORK INVARIANT
+The orchestrator must NEVER execute file modification tools or conduct solo analysis. **MANDATORY subagent invocation** is required for all tasks. Only canonical subagent roles (`explorer`, `implementer`, `reviewer-verifier`, `challenger-auditor`) may be delegated to.
 
 ### Warm Worker Reuse (`send_message`)
 Once Antigravity returns the subagent's `conversationID`, the orchestrator binds it via `registry.bind_native_conversation(worker_id, conversation_id)`. Subsequent dispatches generate `send_message` instructions:

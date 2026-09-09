@@ -47,7 +47,7 @@ graph TD
     A[Task Invocation] --> B[Phase 1: Pre-Planning Gate]
     B --> C{Threshold Exceeded?}
     C -->|Yes| D[Dispatch Parallel Explorers]
-    C -->|No| E[Solo Reconnaissance]
+    C -->|No| E[Subagent Reconnaissance]
     D --> F[Plan & Dynamic DAG Generation]
     E --> F
     F --> G[Phase 2: Execution Dispatch Gate]
@@ -126,29 +126,29 @@ FINAL ACCEPTANCE & WORKFORCE CONCLUSION
 
 #### 1. Phase 1: Pre-Planning Dispatch Gate
 Executes immediately upon orchestrator activation, **BEFORE** substantive repository exploration.
-- **Trigger A (3+ Distinct Domains)**: Mandatory 2+ concurrent specialists.
-- **Trigger B (2+ Independent Reconnaissance Lanes)**: Mandatory 2+ concurrent specialists.
+- **Trigger A (All Tasks)**: Mandatory delegation.
+- **Trigger B (Zero Solo execution)**: Solo reconnaissance is strictly disallowed.
 
 ```text
 [PRE-PLANNING DELEGATION GATE]
-COMPLEXITY_TRIGGER: [DOMAINS >= 3 | INDEPENDENT_LANES >= 2 | BELOW_THRESHOLD]
-DELEGATION_MANDATORY: [YES | NO]
+COMPLEXITY_TRIGGER: [ALL_TASKS]
+DELEGATION_MANDATORY: [YES]
 PLANNED_RECON_WORKFORCE: [N Explorer/Researcher specialists]
-FIRST_ACTION: [invoke_subagent(...) | Solo Reconnaissance]
+FIRST_ACTION: [invoke_subagent(...)]
 ```
 
 #### 2. Phase 2: Post-Approval Execution Dispatch Gate
 Executes **AFTER** plan approval (or Auto-Proceed), **BEFORE** modifying any source code.
-- If $\ge 2$ independent implementation streams exist, SOLO execution is strictly disallowed.
+- SOLO execution is strictly disallowed.
 - Dispatches tasks to the reusable domain worker pool.
 
 ```text
 [EXECUTION DISPATCH GATE]
 INDEPENDENT_STREAMS: [Count of independent execution streams]
-DELEGATION_MANDATORY: [YES | NO]
+DELEGATION_MANDATORY: [YES]
 TARGET_DOMAINS: [List of domains: backend, frontend, infra, test, etc.]
 DISPATCH_STRATEGY: [Pooled Worker Reuse | Spawn Domain Worker]
-FIRST_ACTION: [Dispatch to Reusable Worker Pool | Single Controlled Writer]
+FIRST_ACTION: [Dispatch to Reusable Worker Pool]
 ```
 
 ---

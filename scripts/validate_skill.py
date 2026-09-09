@@ -147,7 +147,7 @@ def validate() -> int:
                 if invalid_tools:
                     errors.append(f"{expected_name}/agent.md declares invalid tools: {invalid_tools}")
 
-    print("[5/6] Validating SKILL.md content & delegation gates...")
+    print("[5/6] Validating SKILL.md, AGENTS.md, & GEMINI.md content & delegation gates...")
     skill_path = os.path.join(repo_root, "SKILL.md")
     with open(skill_path, "r", encoding="utf-8") as f:
         skill_content = f.read()
@@ -159,11 +159,23 @@ def validate() -> int:
             "Dynamic DAG",
             "Reusable Domain Workers",
             "AIMD",
-            "4-Tier Verification Pyramid"
+            "4-Tier Verification Pyramid",
+            "ZERO DIRECT TOOL EXECUTION",
+            "MANDATORY"
         ]
         for phrase in required_phrases:
             if phrase not in skill_content:
                 errors.append(f"SKILL.md missing critical section: '{phrase}'")
+                
+    for rule_file in ["AGENTS.md", "GEMINI.md"]:
+        rule_path = os.path.join(repo_root, rule_file)
+        if os.path.exists(rule_path):
+            with open(rule_path, "r", encoding="utf-8") as f:
+                content = f.read()
+                if "ZERO DIRECT WORK INVARIANT" not in content:
+                    errors.append(f"{rule_file} missing required phrase: 'ZERO DIRECT WORK INVARIANT'")
+        else:
+            errors.append(f"{rule_file} not found")
 
     print("[6/6] Checking coordination template formatting...")
     template_files = [

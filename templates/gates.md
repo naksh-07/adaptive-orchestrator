@@ -1,9 +1,9 @@
 # Adaptive Orchestrator v5 — Delegation & Verification Gate Matrix
 
 ## Gate 1: Phase 1 Pre-Planning Dispatch Gate
-- [ ] Task complexity evaluated against reconnaissance thresholds (3+ domains or 2+ independent lanes).
+- [ ] Task complexity evaluated to determine required reconnaissance lanes.
 - [ ] Pre-planning checklist emitted before file modifications or tool calls.
-- [ ] Read-only explorers/researchers dispatched with strict non-writing scope if triggered.
+- [ ] Read-only explorers dispatched with strict non-writing scope (MANDATORY).
 - [ ] Recon findings reconciled into structured implementation plan.
 
 ## Gate 2: Phase 2 Post-Approval Execution Dispatch Gate
